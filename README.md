@@ -36,7 +36,7 @@ npm test
 
 需要付費的 Apple Developer Program。一次性準備：
 
-1. **Developer ID 憑證**：Xcode → Settings → Accounts → 選 KUO YIN LEE 團隊 → Manage Certificates… → 左下「+」→ Developer ID Application。
+1. **Developer ID 憑證**：Xcode → Settings → Accounts → 選你的付費 Program 團隊 → Manage Certificates… → 左下「+」→ Developer ID Application。
 2. **App 專用密碼**：account.apple.com →「登入與安全性」→「App 專用密碼」→ 產生一組。
 3. 把 Apple ID 與這組密碼填進 `~/.config/desktop-pet/notarize.env`（範本已建，`APPLE_TEAM_ID` 已填）。
 
