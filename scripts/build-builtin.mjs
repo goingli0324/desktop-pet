@@ -1,6 +1,6 @@
 // 用正式的切格器從 assets/sheets/<animal>.png 產出內建動物素材到 assets/builtin/<animal>/。
 // 用法：node scripts/build-builtin.mjs            （全部）
-//       node scripts/build-builtin.mjs mouse dog  （指定）
+//       node scripts/build-builtin.mjs dog hamster-jump  （指定）
 import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
@@ -8,8 +8,10 @@ import { sliceSheet, FRAME_NAMES } from '../renderer/shared/sprite-slicer.js';
 
 const ANIMALS = {
   cat: '橘貓',
-  mouse: '小灰鼠',
   dog: '柴犬',
+  'hamster-walk': '四腳倉鼠',   // 使用者自有倉鼠 IP（line-stickers/winterwhite），三種版本 2026-09-17 定案全收
+  'hamster-stand': '站姿倉鼠',
+  'hamster-jump': '活潑倉鼠',
 };
 const TARGET_H = 220;
 const root = path.join(import.meta.dirname, '..');

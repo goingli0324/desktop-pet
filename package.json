@@ -1,6 +1,6 @@
 {
   "name": "desktop-pet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "桌面小動物：在桌面上隨機跑跳、可拖拉的小寵物，上傳一張圖就能匯入自己的動物（Gemini 生成動作表）。",
   "private": true,
   "type": "module",
