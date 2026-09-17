@@ -9,6 +9,7 @@ import { sliceSheet, FRAME_NAMES } from '../renderer/shared/sprite-slicer.js';
 const ANIMALS = {
   cat: '橘貓',
   dog: '柴犬',
+  mouse: '小灰鼠',
   'hamster-walk': '四腳倉鼠',   // 使用者自有倉鼠 IP（line-stickers/winterwhite），三種版本 2026-09-17 定案全收
   'hamster-stand': '站姿倉鼠',
   'hamster-jump': '活潑倉鼠',
