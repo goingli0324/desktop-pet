@@ -102,3 +102,10 @@ desktop-pet/
 - **閘 A 安全**：無 Critical／High。M1（視窗導覽沒鎖）、M2（金鑰加密不可用時寫明文／解不開時狀態矛盾）已修；L1 fuses（保留 grantFileProtocolExtraPrivileges 預設）、L2（sender 檢查、外連白名單、savePet 驗 PNG magic 與 2 MB）、L3（>16M 像素先縮）、L4（每幀重算 hover、blur/mouseleave 結束拖拉）、L5（CSP 收緊、overlay 樣式外移）、L7（.DS_Store 略過、名稱去控制字元、log 1 MB 輪替）、I1（金鑰格式提示）皆已修。
 - **閘 B UI/UX**：P0-1／P0-2（深色錯誤字與主按鈕對比）已修；P1-1～P1-7 已修（鍵盤可及、等待秒數＋spinner＋全鎖、首次啟動自動開設定＋入口提示、刪除確認說後果且不重生桌面那隻、錯誤文案指路、✕ 28px、設定視窗高度依工作區）。**未做**：P2-11 取消生成、P2-3 滑桿即時預覽（都要新 IPC，觸及禁區 #3，另開）。
 - 回歸：`npm test` 4/4；CDP 拖拉流程 7 檢查點；首次啟動自動開設定；深色模式計算色值符合預期。
+
+## Windows 簽章（2026-09-17 使用者裁決：先不要）
+現況：Windows exe 未簽章，SmartScreen 會警告「其他資訊 → 仍要執行」。electron-builder 26 可在 Mac 上簽 Windows 檔，不需要 Windows 機器；卡的只有憑證，要使用者本人購買與身分驗證。日後要做時的選項（已查證，依據 electron-builder 官方 code-signing-win 文件）：
+1. **Azure Trusted Signing**（建議）：約 US$10/月，SmartScreen 立即信任、無硬體 token；設定 `win.sign = { type: "azure", publisherName, endpoint, codeSigningAccountName, certificateProfileName }`，以 Azure Entra 環境變數認證。前置：Azure 付費帳號、Trusted Signing 帳戶、個人身分驗證（是否開放台灣個人申請時確認）。
+2. **OV 憑證 .pfx**：Certum Open Source（約 €80/年，須 OSI 授權，repo 要補 LICENSE）或 SSL.com／Sectigo；預設 `signtool` 方法在 Mac 上用 osslsigncode 簽。SmartScreen 警告要靠下載量累積才消失。
+3. **EV 憑證**：US$300–500/年，硬體 token，Mac 上走 `type: "pkcs11"`。
+4. **SignPath Foundation**：開源免費，需申請審核並改成 GitHub Actions 雲端簽章。
