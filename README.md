@@ -31,3 +31,20 @@ npm test
 - Windows：`%APPDATA%\desktop-pet\`
 
 裡面有 `pets/`（每隻一個資料夾）、`settings.json`、`gemini.key`（加密）、`logs/app.log`（只記錯誤）。
+
+## 正式簽章（給不特定人下載時）
+
+需要付費的 Apple Developer Program。一次性準備：
+
+1. **Developer ID 憑證**：Xcode → Settings → Accounts → 選 KUO YIN LEE 團隊 → Manage Certificates… → 左下「+」→ Developer ID Application。
+2. **App 專用密碼**：account.apple.com →「登入與安全性」→「App 專用密碼」→ 產生一組。
+3. 把 Apple ID 與這組密碼填進 `~/.config/desktop-pet/notarize.env`（範本已建，`APPLE_TEAM_ID` 已填）。
+
+之後每次發佈：
+
+```
+npm run dist:mac:signed
+```
+
+會簽章、送 Apple notarize（通常 2–10 分鐘）並自動 staple。產物一樣在 `dist/`，對方雙擊即可開，不再出現「無法驗證開發者」。
+`npm run dist:mac` 仍是開發用的未 notarize 版本。Windows 目前未簽章，SmartScreen 警告照舊。

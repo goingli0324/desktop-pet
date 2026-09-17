@@ -8,7 +8,8 @@
 ```
 npm start          # 開發啟動（也可雙擊 啟動.command）
 npm test           # 切格器測試（node --test）
-npm run dist:mac   # DMG → dist/
+npm run dist:mac          # DMG → dist/（開發用，未 notarize）
+npm run dist:mac:signed   # Developer ID 簽章 + notarize，帳密讀 ~/.config/desktop-pet/notarize.env
 npm run dist:win   # NSIS + portable exe → dist/（在 mac 上建置）
 node scripts/build-builtin.mjs [cat|mouse|dog]   # 從 assets/sheets/<animal>.png 重產內建素材（原始表不進打包）
 ```

@@ -9,7 +9,8 @@
     "start": "electron .",
     "test": "node --test",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "dist:mac:signed": "bash scripts/dist-mac-signed.sh"
   },
   "devDependencies": {
     "electron": "^44.4.1",
@@ -41,7 +42,8 @@
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.entertainment",
-      "sign": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": [
