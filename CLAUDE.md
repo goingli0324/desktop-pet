@@ -1,6 +1,6 @@
 # desktop-pet（桌面小動物）
 
-跨平台（macOS／Windows）Electron 桌面寵物。內建貓、狗、小灰鼠與三隻倉鼠（倉鼠是使用者自有 IP）；上傳一張圖可請 Gemini 生成 8 格動作表匯入。
+跨平台（macOS／Windows）Electron 桌面寵物。內建貓、狗、小灰鼠、可爾鴨與三隻倉鼠（倉鼠是使用者自有 IP）；上傳一張圖可請 Gemini 生成 8 格動作表匯入。
 計畫與決策依據：`plans/2026-09-17-desktop-pet.md`。
 
 ## 常用指令
@@ -11,7 +11,7 @@ npm test           # 切格器測試（node --test）
 npm run dist:mac          # DMG → dist/（開發用，未 notarize）
 npm run dist:mac:signed   # Developer ID 簽章 + notarize，帳密讀 ~/.config/desktop-pet/notarize.env
 npm run dist:win   # NSIS + portable exe → dist/（在 mac 上建置）
-node scripts/build-builtin.mjs [cat|dog|mouse|hamster-walk|hamster-stand|hamster-jump]   # 從 assets/sheets/<animal>.png 重產內建素材（原始表不進打包）
+node scripts/build-builtin.mjs [cat|dog|mouse|duck|hamster-walk|hamster-stand|hamster-jump]   # 從 assets/sheets/<animal>.png 重產內建素材（原始表不進打包）
 ```
 
 ## 連動禁區（修改前必讀）

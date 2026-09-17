@@ -13,6 +13,7 @@ const ANIMALS = {
   'hamster-walk': '四腳倉鼠',   // 使用者自有倉鼠 IP（line-stickers/winterwhite），三種版本 2026-09-17 定案全收
   'hamster-stand': '站姿倉鼠',
   'hamster-jump': '活潑倉鼠',
+  duck: '可爾鴨',
 };
 const TARGET_H = 220;
 const root = path.join(import.meta.dirname, '..');
