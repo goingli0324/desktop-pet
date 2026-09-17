@@ -48,3 +48,7 @@ npm run dist:mac:signed
 
 會簽章、送 Apple notarize（通常 2–10 分鐘）並自動 staple。產物一樣在 `dist/`，對方雙擊即可開，不再出現「無法驗證開發者」。
 `npm run dist:mac` 仍是開發用的未 notarize 版本。Windows 目前未簽章，SmartScreen 警告照舊。
+
+## 授權
+
+程式碼採 MIT License（見 `LICENSE`）。`assets/` 內的所有圖片與 `docs/` 的截圖為作者所有、保留所有權利，不在 MIT 範圍內，未經同意請勿單獨取用或改作。

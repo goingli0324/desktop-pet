@@ -74,5 +74,7 @@
       "enableEmbeddedAsarIntegrityValidation": true,
       "onlyLoadAppFromAsar": true
     }
-  }
+  },
+  "license": "MIT",
+  "author": "Going Li"
 }
