@@ -19,12 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Assets are NOT covered by the MIT License. All image assets under `assets/`
-(including `assets/builtin/`, `assets/sheets/`, `assets/icon.png`,
-`assets/tray.png`) and the screenshots under `docs/` are © 2026 Going Li,
-all rights reserved. They are included so the app runs as published; you may
-not reuse, redistribute, or create derivative works from them separately
-from this app without written permission.

@@ -51,4 +51,6 @@ npm run dist:mac:signed
 
 ## 授權
 
-程式碼採 MIT License（見 `LICENSE`）。`assets/` 內的所有圖片與 `docs/` 的截圖為作者所有、保留所有權利，不在 MIT 範圍內，未經同意請勿單獨取用或改作。
+程式碼採 MIT License（見 `LICENSE`）。
+
+**素材不在 MIT 範圍內。** `assets/` 內的所有圖片（`assets/builtin/`、`assets/sheets/`、`assets/icon.png`、`assets/tray.png`）與 `docs/` 的截圖為 © 2026 Going Li，保留所有權利。它們隨 app 一起發佈只是為了讓程式能跑；未經書面同意，不得單獨重製、散布或改作。
