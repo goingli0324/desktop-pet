@@ -1,0 +1,16 @@
+{
+  "id": "builtin-dog",
+  "name": "柴犬（內建）",
+  "source": "builtin",
+  "procedural": false,
+  "frames": {
+    "walk0": "walk0.png",
+    "walk1": "walk1.png",
+    "walk2": "walk2.png",
+    "walk3": "walk3.png",
+    "idle": "idle.png",
+    "crouch": "crouch.png",
+    "air": "air.png",
+    "land": "land.png"
+  }
+}

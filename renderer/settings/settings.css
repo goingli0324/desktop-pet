@@ -1,0 +1,50 @@
+:root {
+  --bg: #faf7f2; --card: #ffffff; --ink: #2b2620; --muted: #7a7168; --line: #e6dfd5;
+  --accent: #e8893a; --accent-strong: #b0581a; --accent-ink: #fff; --danger: #c0392b; --ok: #2e7d32;
+  --checker: repeating-conic-gradient(var(--line) 0 25%, var(--card) 0 50%) 0 0 / 16px 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1e1b18; --card: #2a2622; --ink: #f2ede6; --muted: #a79d92; --line: #3d3731; --accent-strong: #e8893a; --accent-ink: #1e1b18; --danger: #e57368; --ok: #6fbf73; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.5 -apple-system, "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+main { padding: 20px 24px 40px; max-width: 620px; margin: 0 auto; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.hint { color: var(--muted); font-size: 12px; margin: 4px 0 10px; }
+a { color: var(--accent-strong); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+input[type="text"], input[type="password"] { flex: 1; min-width: 160px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+input[type="range"] { flex: 1; }
+.btn { padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.primary { background: var(--accent-strong); color: var(--accent-ink); border-color: var(--accent-strong); }
+.btn.primary:hover { filter: brightness(.92); }
+.btn:focus-visible, .pet-card:focus-visible, .file-btn:focus-within { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+main[aria-busy] .pet-grid, main[aria-busy] .file-btn { pointer-events: none; opacity: .5; }
+.status.busy::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .status.busy::before { animation: none; } }
+.btn.danger { color: var(--danger); }
+.file-btn { display: inline-block; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.hidden { display: none !important; }
+.status { padding: 8px 10px; border-radius: 8px; background: var(--bg); font-size: 13px; margin: 8px 0; }
+.status.error { color: var(--danger); }
+.status.ok { color: var(--ok); }
+.pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.pet-card { border: 2px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; }
+.pet-card:hover { border-color: var(--accent); }
+.pet-card.current { border-color: var(--accent); }
+.pet-card img { width: 100%; height: 80px; object-fit: contain; }
+.pet-card .name { font-size: 13px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pet-card .badge { position: absolute; top: 6px; left: 6px; font-size: 12px; background: var(--accent-strong); color: var(--accent-ink); padding: 1px 6px; border-radius: 6px; }
+.pet-card .del { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; line-height: 28px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; }
+.pet-card .del:hover { color: var(--danger); background: var(--bg); }
+.empty { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; grid-column: 1 / -1; }
+.preview img { max-width: 100%; max-height: 180px; display: block; margin: 8px auto; background: var(--checker); border-radius: 8px; }
+.frames { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.frames img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--checker); border-radius: 6px; }
+.frames figure { margin: 0; text-align: center; font-size: 12px; color: var(--muted); }

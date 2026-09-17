@@ -1,0 +1,76 @@
+{
+  "name": "desktop-pet",
+  "version": "0.1.0",
+  "description": "桌面小動物：在桌面上隨機跑跳、可拖拉的小寵物，上傳一張圖就能匯入自己的動物（Gemini 生成動作表）。",
+  "private": true,
+  "type": "module",
+  "main": "main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
+    "pngjs": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.muzigoing.desktop-pet",
+    "productName": "Desktop Pet",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main/**",
+      "renderer/**",
+      "assets/**",
+      "!assets/sheets/**",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.entertainment",
+      "sign": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
+  }
+}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'">
+  <title>桌面小動物 設定</title>
+  <link rel="stylesheet" href="./settings.css">
+</head>
+<body>
+  <main>
+    <h1 class="sr-only">桌面小動物 設定</h1>
+    <p class="hint">小動物已經在桌面上了。之後要回到這個視窗：點螢幕右上角（Windows 在右下角）的貓頭圖示，或在小動物身上按右鍵。</p>
+    <section>
+      <h2>我的小動物</h2>
+      <div id="pet-list" class="pet-grid" aria-live="polite"></div>
+    </section>
+
+    <section>
+      <h2>匯入新動物</h2>
+      <p class="hint">選一張圖（PNG／JPG／WebP，10 MB 以內）。有 Gemini 金鑰時會自動畫出走路、跳躍等 8 個動作；沒有金鑰也能用「單張圖」模式。</p>
+      <div class="row">
+        <label class="btn file-btn">選擇圖片<input id="file" type="file" class="sr-only" accept="image/png,image/jpeg,image/webp"></label>
+        <input id="pet-name" type="text" maxlength="30" placeholder="名字（選填）">
+      </div>
+      <div id="import-preview" class="preview hidden">
+        <img id="source-img" alt="上傳的圖片預覽">
+        <div class="row">
+          <button id="btn-generate" class="btn primary">用 AI 生成動作</button>
+          <button id="btn-static" class="btn">改用單張圖（不生成）</button>
+        </div>
+        <label class="check"><input id="strip-bg" type="checkbox" checked> 單張圖模式去背（只對純色背景有效）</label>
+      </div>
+      <div id="progress" class="status hidden" role="status"></div>
+      <div id="result" class="hidden">
+        <p class="hint">生成結果（8 個動作）。滿意就採用，不滿意可以再生成一次或改用單張圖。</p>
+        <div id="frames" class="frames"></div>
+        <div class="row">
+          <button id="btn-adopt" class="btn primary">採用這隻</button>
+          <button id="btn-retry" class="btn">再生成一次</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Gemini 金鑰</h2>
+      <p class="hint">生成動作需要你自己的 Gemini API 金鑰。金鑰只存在這台電腦上（加密），只用來呼叫 Gemini；上傳的圖片會送到 Google 處理。 <a href="#" id="link-key">取得金鑰</a></p>
+      <div id="key-status" class="status"></div>
+      <div class="row">
+        <input id="key-input" type="password" placeholder="貼上 API 金鑰" autocomplete="off">
+        <button id="btn-key-save" class="btn primary">儲存</button>
+        <button id="btn-key-clear" class="btn">清除</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>顯示</h2>
+      <label class="row">大小 <input id="scale" type="range" min="0.2" max="1.5" step="0.05"> <span id="scale-val"></span></label>
+      <label class="check"><input id="paused" type="checkbox"> 暫停（小動物停在原地）</label>
+      <p class="hint">遇到問題？ <a href="#" id="link-logs">打開記錄檔資料夾</a></p>
+    </section>
+  </main>
+  <script type="module" src="./settings.js"></script>
+</body>
+</html>
