@@ -34,7 +34,7 @@ export function createOverlayWindow() {
 const REASSERT_TOP_MS = 2000;
 function keepOnTop(win) {
   const level = process.platform === 'win32' ? 'screen-saver' : 'floating';
-  const reassert = () => { if (!win.isDestroyed() && !win.isAlwaysOnTop()) win.setAlwaysOnTop(true, level); else if (!win.isDestroyed() && process.platform === 'win32') win.setAlwaysOnTop(true, level); };
+  const reassert = () => { if (!win.isDestroyed()) win.setAlwaysOnTop(true, level); };
   win.on('blur', reassert);
   win.on('show', reassert);
   const timer = setInterval(reassert, REASSERT_TOP_MS);
