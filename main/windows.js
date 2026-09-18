@@ -20,9 +20,25 @@ export function createOverlayWindow() {
   win.setAlwaysOnTop(true, 'floating');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.setIgnoreMouseEvents(true, { forward: true });
+  keepOnTop(win);
   win.loadFile(path.join(here, '..', 'renderer', 'overlay', 'index.html'));
   win.once('ready-to-show', () => win.showInactive());
   return win;
+}
+
+/**
+ * Windows 上的置頂視窗在失焦後常被之後啟用的視窗蓋過（electron#20933、#23614、#31536），
+ * 尤其搭配 focusable:false。對策：失焦時與每 2 秒重新宣告一次置頂；setAlwaysOnTop 不會搶焦點。
+ * macOS 不需要，但重複設定同一層級無副作用，所以不分平台。
+ */
+const REASSERT_TOP_MS = 2000;
+function keepOnTop(win) {
+  const level = process.platform === 'win32' ? 'screen-saver' : 'floating';
+  const reassert = () => { if (!win.isDestroyed() && !win.isAlwaysOnTop()) win.setAlwaysOnTop(true, level); else if (!win.isDestroyed() && process.platform === 'win32') win.setAlwaysOnTop(true, level); };
+  win.on('blur', reassert);
+  win.on('show', reassert);
+  const timer = setInterval(reassert, REASSERT_TOP_MS);
+  win.on('closed', () => clearInterval(timer));
 }
 
 /** 讓覆蓋層永遠貼齊主螢幕 work area（接外接螢幕、改工作列位置時）。 */
