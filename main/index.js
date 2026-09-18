@@ -80,17 +80,13 @@ function broadcast(channel, payload) {
   for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-function selectPet(id) {
-  const pet = store.loadPet(id);
-  if (!pet) throw new Error('找不到這隻寵物');
-  store.updateSettings({ currentPetId: pet.id });
-  broadcast('pet:changed', pet);
-  return pet.id;
+function broadcastActivePets() {
+  broadcast('pets:changed', store.loadActivePets());
 }
 
 function registerIpc() {
   // overlay
-  ipcMain.handle('pet:current', () => store.loadPet(store.readSettings().currentPetId));
+  ipcMain.handle('pets:active', () => store.loadActivePets());
   ipcMain.handle('state:get', () => store.readSettings());
   ipcMain.on('overlay:ignore-mouse', (event, ignore) => {
     if (!overlay || event.sender !== overlay.webContents) return; // 只有覆蓋層能切穿透
@@ -107,14 +103,15 @@ function registerIpc() {
   });
 
   // settings
-  ipcMain.handle('pets:list', () => ({ pets: store.listPets(), currentPetId: store.readSettings().currentPetId }));
-  ipcMain.handle('pets:select', (_e, id) => selectPet(String(id)));
+  ipcMain.handle('pets:list', () => ({ pets: store.listPets(), counts: store.readSettings().counts, maxTotal: store.MAX_TOTAL_PETS }));
+  ipcMain.handle('pets:setCount', (_e, id, n) => { const s = store.setPetCount(String(id), n); broadcastActivePets(); return s.counts; });
   ipcMain.handle('pets:delete', (_e, id) => {
-    const wasCurrent = store.readSettings().currentPetId === String(id);
+    const wasActive = (store.readSettings().counts[String(id)] || 0) > 0;
     store.deletePet(String(id));
-    return wasCurrent ? selectPet(store.readSettings().currentPetId) : store.readSettings().currentPetId; // 刪沒在用的，桌面那隻不要重生
+    if (wasActive) broadcastActivePets(); // 刪沒在用的，桌面上的不要重生
+    return store.readSettings().counts;
   });
-  ipcMain.handle('pets:save', (_e, pet) => { const meta = store.savePet(pet); selectPet(meta.id); return meta.id; });
+  ipcMain.handle('pets:save', (_e, pet) => { const meta = store.savePet(pet); store.setPetCount(meta.id, 1); broadcastActivePets(); return meta.id; });
   ipcMain.handle('gemini:sheet', async (_e, image) => {
     try {
       return { ok: true, ...(await generateSpriteSheet(secrets.readKey(), image)) };

@@ -11,29 +11,37 @@ const $ = (id) => document.getElementById(id);
 let source = null;      // { dataUrl, mimeType, base64, image }
 let candidate = null;   // { frames: {name: dataUrl}, source: 'ai'|'static', procedural }
 
-// ---- 寵物清單 ----
+// ---- 寵物清單：每張卡片一個數量步進器，總數上限由 main 給 ----
 async function renderPets() {
-  const { pets, currentPetId } = await window.pet.listPets();
+  const { pets, counts, maxTotal } = await window.pet.listPets();
   const list = $('pet-list');
   list.innerHTML = '';
+  const total = Object.values(counts).reduce((s, n) => s + n, 0);
+  $('pet-total').textContent = `桌面上共 ${total} 隻（上限 ${maxTotal}）`;
   if (!pets.length) { list.innerHTML = '<div class="empty">還沒有小動物——往下用「匯入新動物」加一隻</div>'; return; }
   for (const p of pets) {
+    const n = counts[p.id] || 0;
     const card = document.createElement('div');
-    card.className = 'pet-card' + (p.id === currentPetId ? ' current' : '');
-    card.innerHTML = `${p.id === currentPetId ? '<span class="badge">使用中</span>' : ''}<img alt=""><div class="name"></div>`;
+    card.className = 'pet-card' + (n > 0 ? ' current' : '');
+    card.innerHTML = `${n > 0 ? `<span class="badge">${n} 隻</span>` : ''}<img alt=""><div class="name"></div>
+      <div class="stepper" role="group"><button class="minus" aria-label="少一隻">−</button><input class="count" type="number" min="0" max="${maxTotal}" inputmode="numeric" aria-label="數量"><button class="plus" aria-label="多一隻">＋</button></div>`;
     card.querySelector('img').src = p.thumbnail || '';
     card.querySelector('.name').textContent = p.name;
     card.title = p.name;
-    card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-pressed', String(p.id === currentPetId));
-    card.addEventListener('click', () => window.pet.selectPet(p.id).then(renderPets).catch(showError));
-    card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } });
+    const input = card.querySelector('.count');
+    input.value = n;
+    const setCount = (v) => window.pet.setPetCount(p.id, v).then(renderPets).catch(showError);
+    card.querySelector('.minus').addEventListener('click', () => setCount(n - 1));
+    card.querySelector('.plus').addEventListener('click', () => setCount(n + 1));
+    input.addEventListener('change', () => setCount(Number(input.value)));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+    card.querySelector('img').addEventListener('click', () => setCount(n > 0 ? 0 : 1)); // 點圖：有→無、無→1
     if (p.source !== 'builtin') {
       const del = document.createElement('button');
       del.className = 'del'; del.textContent = '✕'; del.title = '刪除'; del.setAttribute('aria-label', `刪除 ${p.name}`);
       del.addEventListener('click', (e) => {
         e.stopPropagation();
-        const using = p.id === currentPetId;
-        if (confirm(`要刪除「${p.name}」嗎？刪掉就找不回來${using ? '，桌面會換回內建的橘貓' : ''}。`)) window.pet.deletePet(p.id).then(renderPets).catch(showError);
+        if (confirm(`要刪除「${p.name}」嗎？刪掉就找不回來${n > 0 ? '，桌面上的這種會消失' : ''}。`)) window.pet.deletePet(p.id).then(renderPets).catch(showError);
       });
       card.appendChild(del);
     }
@@ -185,7 +193,7 @@ $('scale').addEventListener('input', () => { $('scale-val').textContent = `${Mat
 $('scale').addEventListener('change', () => window.pet.setScale(Number($('scale').value)));
 $('paused').addEventListener('change', () => window.pet.setPaused($('paused').checked));
 window.pet.onStateChanged(renderState);
-window.pet.onPetChanged(renderPets);
+window.pet.onPetsChanged(renderPets);
 
 // ---- 工具 ----
 function setProgress(msg, kind = '') {

@@ -109,3 +109,9 @@ desktop-pet/
 2. **OV 憑證 .pfx**：Certum Open Source（約 €80/年，須 OSI 授權，repo 要補 LICENSE）或 SSL.com／Sectigo；預設 `signtool` 方法在 Mac 上用 osslsigncode 簽。SmartScreen 警告要靠下載量累積才消失。
 3. **EV 憑證**：US$300–500/年，硬體 token，Mac 上走 `type: "pkcs11"`。
 4. **SignPath Foundation**：開源免費，需申請審核並改成 GitHub Actions 雲端簽章。
+
+## 多隻寵物（2026-09-18 使用者定案：混合多種、各自設數量）
+- `settings.counts = { petId: n }` 取代 `currentPetId`；舊設定讀取時自動轉換；總數上限 99（`MAX_TOTAL_PETS`），超過會被 `setPetCount` 夾住。
+- 覆蓋層改為 `actors[]`：每隻獨立狀態機、起手時間錯開；畫圖依腳底 y 排序（低的在前），拖著的那隻永遠最上；hover／拖拉只作用在游標下最前面那隻。
+- 設定頁每張卡片一個「− 數字 ＋」，點縮圖在 0 與 1 之間切換；上方顯示總數。
+- 實測：99 隻鴨 121 fps（M4 Pro）、上限夾住、拖其中一隻不影響其他隻。

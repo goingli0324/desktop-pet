@@ -40,6 +40,12 @@ main[aria-busy] .pet-grid, main[aria-busy] .file-btn { pointer-events: none; opa
 .pet-card.current { border-color: var(--accent); }
 .pet-card img { width: 100%; height: 80px; object-fit: contain; }
 .pet-card .name { font-size: 13px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pet-card img { cursor: pointer; }
+.stepper { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 6px; }
+.stepper button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); font-size: 16px; cursor: pointer; }
+.stepper button:hover { border-color: var(--accent-strong); }
+.stepper .count { width: 44px; height: 28px; text-align: center; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; -moz-appearance: textfield; }
+.stepper .count::-webkit-inner-spin-button, .stepper .count::-webkit-outer-spin-button { -webkit-appearance: none; }
 .pet-card .badge { position: absolute; top: 6px; left: 6px; font-size: 12px; background: var(--accent-strong); color: var(--accent-ink); padding: 1px 6px; border-radius: 6px; }
 .pet-card .del { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; line-height: 28px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; }
 .pet-card .del:hover { color: var(--danger); background: var(--bg); }

@@ -17,8 +17,8 @@ node scripts/build-builtin.mjs [cat|dog|mouse|duck|hamster-walk|hamster-stand|ha
 ## 連動禁區（修改前必讀）
 
 1. **`FRAME_NAMES` 的順序**（`renderer/shared/sprite-slicer.js`）＝ Gemini 提示詞的姿勢順序（`main/gemini.js` PROMPT）＝ 覆蓋層的動作對應（`renderer/overlay/overlay.js` currentFrame）＝ `pet.json` 的 frames 鍵。改任何一處，四處要一起改，且既有已匯入的寵物資料會失效。
-2. **`pet.json` schema**（`main/pets-store.js` 檔頭註解）：`userData/pets/<id>/` 是使用者資料，改欄位要向下相容或寫遷移。
-3. **IPC 通道名**：`main/preload.cjs` 白名單 ↔ `main/index.js` registerIpc ↔ 兩個 renderer。新增功能一律三處同步；preload 只暴露函式，不暴露 `ipcRenderer`。
+2. **`pet.json` 與 `settings.json` schema**（`main/pets-store.js` 檔頭註解）：`userData/pets/<id>/` 與 `settings.json` 是使用者資料，改欄位要向下相容或寫遷移。`settings.counts` 取代了舊的 `currentPetId`（`readSettings` 讀到舊格式會自動轉），總數上限 `MAX_TOTAL_PETS`。
+3. **IPC 通道名**：`main/preload.cjs` 白名單 ↔ `main/index.js` registerIpc ↔ 兩個 renderer。新增功能一律三處同步；preload 只暴露函式，不暴露 `ipcRenderer`。目前：`pets:active`／`pets:changed`（overlay 拿整組含數量）、`pets:setCount`、`pets:list`、`pets:delete`、`pets:save`。
 4. **點擊穿透邏輯**：`createOverlayWindow` 預設 `setIgnoreMouseEvents(true, {forward:true})`，只有 overlay.js 的 `setIgnore(false)` 會關掉。任何讓 overlay 長時間不穿透的改動，會讓整個桌面點不到。
 5. **切格器的兩個模式**：`keyEnclosed=false`（單張圖，只刪邊緣連通背景，保護淺色肚子）／`keyEnclosed=true`（AI 表，背景是我們指定的洋紅，可去封閉口袋）。搞反會挖穿角色或留洋紅點。改演算法先跑 `npm test`，fixture 是真實生成結果。
 6. **金鑰**只經 `main/secrets.js`（safeStorage）。不進 settings.json、不進 log、不回明文給 renderer（只回尾四碼）。Gemini 呼叫金鑰走 header，不走 query string。
@@ -29,3 +29,4 @@ node scripts/build-builtin.mjs [cat|dog|mouse|duck|hamster-walk|hamster-stand|ha
 - ESM（`"type":"module"`），只有 preload 是 `.cjs`（sandbox 限制）。
 - 沒有建置步驟：renderer 直接載 `.js` 模組，CSP `default-src 'self'`，不載外部資源。
 - 正常運作時安靜；只有錯誤寫 `userData/logs/app.log`。
+- 覆蓋層是多實例：`actors[]` 每隻獨立狀態機，`spawn()` 要先 `enter()` 再 `clampToScreen()`（後者要靠目前幀取尺寸）。

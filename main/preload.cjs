@@ -10,15 +10,15 @@ const on = (channel) => (cb) => {
 
 contextBridge.exposeInMainWorld('pet', {
   // overlay
-  getCurrentPet: invoke('pet:current'),
+  getActivePets: invoke('pets:active'),
   getState: invoke('state:get'),
   setIgnoreMouse: (ignore) => ipcRenderer.send('overlay:ignore-mouse', ignore),
   showPetMenu: () => ipcRenderer.send('overlay:menu'),
-  onPetChanged: on('pet:changed'),
+  onPetsChanged: on('pets:changed'),
   onStateChanged: on('state:changed'),
   // settings
   listPets: invoke('pets:list'),
-  selectPet: invoke('pets:select'),
+  setPetCount: invoke('pets:setCount'),
   deletePet: invoke('pets:delete'),
   savePet: invoke('pets:save'),
   generateSheet: invoke('gemini:sheet'),

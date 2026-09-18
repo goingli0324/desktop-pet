@@ -6,12 +6,13 @@ import { log } from './log.js';
 
 // 寵物與設定都是純檔案：
 //   userData/pets/<id>/pet.json + <frame>.png
-//   userData/settings.json  { currentPetId, scale, paused }
+//   userData/settings.json  { counts: { <petId>: n }, scale, paused }   ← 舊版 currentPetId 讀取時自動轉成 counts
 // pet.json schema： { id, name, source: 'builtin'|'ai'|'static', procedural: boolean, frames: { walk0..land: '<file>.png' }, createdAt }
 // 所有幀都可指向同一個檔（static 來源就是這樣）。
 
 const BUILTIN_ID = 'builtin-cat';
-const DEFAULT_SETTINGS = { currentPetId: BUILTIN_ID, scale: 0.55, paused: false };
+const DEFAULT_SETTINGS = { counts: { [BUILTIN_ID]: 1 }, scale: 0.55, paused: false };
+export const MAX_TOTAL_PETS = 99;
 
 const petsDir = () => path.join(app.getPath('userData'), 'pets');
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -32,7 +33,35 @@ export function ensureBuiltinPets() {
 }
 
 export function readSettings() {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { return { ...DEFAULT_SETTINGS }; }
+  let s;
+  try { s = { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch { s = { ...DEFAULT_SETTINGS }; }
+  if (!s.counts || typeof s.counts !== 'object') s.counts = { [s.currentPetId || BUILTIN_ID]: 1 }; // 舊版設定轉換
+  delete s.currentPetId;
+  return s;
+}
+
+/** 設定某隻的數量；總數超過 MAX_TOTAL_PETS 會被夾住。全部歸零時退回內建貓 1 隻。 */
+export function setPetCount(id, n) {
+  const s = readSettings();
+  if (!readPetMeta(id)) throw new Error('找不到這隻寵物');
+  const others = Object.entries(s.counts).filter(([k]) => k !== id).reduce((sum, [, v]) => sum + v, 0);
+  const next = Math.max(0, Math.min(Math.floor(Number(n) || 0), MAX_TOTAL_PETS - others));
+  const counts = { ...s.counts };
+  if (next > 0) counts[id] = next; else delete counts[id];
+  if (!Object.keys(counts).length) counts[BUILTIN_ID] = 1;
+  return updateSettings({ counts });
+}
+
+/** 給 overlay 用：所有數量 > 0 的寵物，含幀與數量。 */
+export function loadActivePets() {
+  const { counts } = readSettings();
+  const active = [];
+  for (const [id, count] of Object.entries(counts)) {
+    const pet = loadPet(id);
+    if (pet && count > 0) active.push({ ...pet, count });
+  }
+  if (!active.length) { const cat = loadPet(BUILTIN_ID); if (cat) active.push({ ...cat, count: 1 }); }
+  return active;
 }
 
 export function updateSettings(patch) {
@@ -53,9 +82,9 @@ export function listPets() {
   return pets.sort((a, b) => rank(a) - rank(b) || (a.createdAt || '').localeCompare(b.createdAt || ''));
 }
 
-/** 給 overlay 用：整隻寵物含所有幀的 data URL。 */
+/** 整隻寵物含所有幀的 data URL。 */
 export function loadPet(id) {
-  const meta = readPetMeta(id) || readPetMeta(BUILTIN_ID);
+  const meta = readPetMeta(id);
   if (!meta) return null;
   const frames = {};
   for (const name of FRAME_NAMES) frames[name] = frameDataUrl(meta.id, meta.frames[name] || meta.frames.idle);
@@ -94,7 +123,10 @@ export function deletePet(id) {
   const dir = path.join(petsDir(), id);
   if (path.dirname(dir) !== petsDir()) throw new Error('非法 id');
   fs.rmSync(dir, { recursive: true, force: true });
-  if (readSettings().currentPetId === id) updateSettings({ currentPetId: BUILTIN_ID });
+  const counts = { ...readSettings().counts };
+  delete counts[id];
+  if (!Object.keys(counts).length) counts[BUILTIN_ID] = 1;
+  updateSettings({ counts });
 }
 
 function readPetMeta(id) {
