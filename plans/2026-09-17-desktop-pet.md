@@ -115,3 +115,7 @@ desktop-pet/
 - 覆蓋層改為 `actors[]`：每隻獨立狀態機、起手時間錯開；畫圖依腳底 y 排序（低的在前），拖著的那隻永遠最上；hover／拖拉只作用在游標下最前面那隻。
 - 設定頁每張卡片一個「− 數字 ＋」，點縮圖在 0 與 1 之間切換；上方顯示總數。
 - 實測：99 隻鴨 121 fps（M4 Pro）、上限夾住、拖其中一隻不影響其他隻。
+
+## Windows 置頂被蓋（2026-09-18，使用者實機回報 → 已修）
+症狀：Windows 上小動物會被其他視窗蓋住。無 Windows 機器，依 Electron 已知 issue 列三個假設，先做假設 1 給使用者驗。
+**成立的是假設 1**：置頂視窗失焦後被之後啟用的視窗蓋過（electron#20933／#23614／#31536，搭配 focusable:false）。修法 `main/windows.js keepOnTop()`：失焦與每 2 秒重新 `setAlwaysOnTop(true, 'screen-saver')`（mac 用 floating）。使用者以 v0.1.4-beta.1 實測「完全不被蓋」。
