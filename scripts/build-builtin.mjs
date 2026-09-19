@@ -17,7 +17,17 @@ const ANIMALS = {
   'tw-leopardcat': '石虎', 'tw-bluemagpie': '台灣藍鵲', 'tw-blackbear': '台灣黑熊', 'tw-macaque': '台灣獼猴',
   'tw-pheasant': '帝雉', 'tw-sikadeer': '梅花鹿', 'tw-muntjac': '山羌', 'tw-formosandog': '台灣犬', 'tw-pangolin': '穿山甲',
 }
-const TARGET_H = 220;
+const TARGET_H = 220; // 舊：全部等高（已由 SIZES 取代）
+// 相對真實體型（1.0 = 中型如貓；鼠鳥偏小、牛熊馬偏大）。決定成品 PNG 的高度＝BASE_H×此值。
+const SIZES = {
+  cat: 0.8, 'cat-calico': 0.8, dog: 0.95, duck: 0.68, hamster: 0.52,
+  'zodiac-rat': 0.5, 'zodiac-ox': 1.6, 'zodiac-tiger': 1.25, 'zodiac-rabbit': 0.72,
+  'zodiac-dragon': 1.2, 'zodiac-snake': 0.7, 'zodiac-horse': 1.45, 'zodiac-goat': 1.0,
+  'zodiac-monkey': 0.9, 'zodiac-rooster': 0.85, 'zodiac-dog': 0.9, 'zodiac-pig': 1.1,
+  'tw-leopardcat': 0.8, 'tw-bluemagpie': 0.6, 'tw-blackbear': 1.6, 'tw-macaque': 0.95,
+  'tw-pheasant': 0.82, 'tw-sikadeer': 1.25, 'tw-muntjac': 0.75, 'tw-formosandog': 1.0, 'tw-pangolin': 0.75,
+};
+const BASE_H = 200;
 const root = path.join(import.meta.dirname, '..');
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(ANIMALS);
 
@@ -26,7 +36,8 @@ for (const animal of wanted) {
   const png = PNG.sync.read(fs.readFileSync(path.join(root, 'assets', 'sheets', `${animal}.png`)));
   const { frames, blobCount } = sliceSheet({ width: png.width, height: png.height, data: new Uint8ClampedArray(png.data.buffer, png.data.byteOffset, png.data.length) }, { keyEnclosed: true });
   if (!frames.every(Boolean)) throw new Error(`${animal}：切格不完整（${frames.filter(Boolean).length}/8，${blobCount} 個色塊）`);
-  const scale = TARGET_H / Math.max(...frames.map((f) => f.height));
+  const targetH = BASE_H * (SIZES[animal] ?? 1.0);
+  const scale = targetH / Math.max(...frames.map((f) => f.height));
   const out = path.join(root, 'assets', 'builtin', animal);
   fs.mkdirSync(out, { recursive: true });
   const meta = { id: `builtin-${animal}`, name: `${ANIMALS[animal]}（內建）`, source: 'builtin', procedural: false, frames: {} };

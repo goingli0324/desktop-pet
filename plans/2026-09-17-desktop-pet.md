@@ -123,3 +123,6 @@ desktop-pet/
 
 ## 內建動物大擴充（2026-09-19，使用者定案）
 倉鼠收斂回 1 隻（留 hamster-jump→hamster）。新增十二生肖（zodiac-*，文字生成）與九種台灣特有種（tw-*）：石虎/藍鵲/黑熊/獼猴用使用者 line-stickers 的 anchor 畫稿當參考圖，帝雉/梅花鹿/山羌/台灣犬/穿山甲文字生成。共 26 隻。生肖虎首次把「idle standing」畫進圖，加「ABSOLUTELY NO TEXT」重生。原始表在 assets/sheets/，參考圖來源見 line-stickers/anchor/。
+
+## 相對體型（2026-09-19）
+使用者要「鼠本來就比較小」→ 加 `SIZES` 表，成品 PNG 高度＝BASE_H(200)×相對體型，不再全部等高。overlay 的全域 scale 疊在上面，相對比例維持。
