@@ -1,6 +1,6 @@
 {
-  "id": "builtin-mouse",
-  "name": "小灰鼠（內建）",
+  "id": "builtin-cat-calico",
+  "name": "三花貓（內建）",
   "source": "builtin",
   "procedural": false,
   "frames": {

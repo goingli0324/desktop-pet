@@ -8,7 +8,7 @@ import { sliceSheet, FRAME_NAMES } from '../renderer/shared/sprite-slicer.js';
 
 const ANIMALS = {
   // 原有
-  cat: '橘貓', dog: '柴犬', mouse: '小灰鼠', duck: '可爾鴨', hamster: '倉鼠',
+  cat: '橘貓', 'cat-calico': '三花貓', dog: '柴犬', duck: '可爾鴨', hamster: '倉鼠',
   // 十二生肖
   'zodiac-rat': '生肖鼠', 'zodiac-ox': '生肖牛', 'zodiac-tiger': '生肖虎', 'zodiac-rabbit': '生肖兔',
   'zodiac-dragon': '生肖龍', 'zodiac-snake': '生肖蛇', 'zodiac-horse': '生肖馬', 'zodiac-goat': '生肖羊',
