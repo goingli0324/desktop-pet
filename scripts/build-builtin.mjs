@@ -7,14 +7,16 @@ import { PNG } from 'pngjs';
 import { sliceSheet, FRAME_NAMES } from '../renderer/shared/sprite-slicer.js';
 
 const ANIMALS = {
-  cat: '橘貓',
-  dog: '柴犬',
-  mouse: '小灰鼠',
-  'hamster-walk': '四腳倉鼠',   // 使用者自有倉鼠 IP（line-stickers/winterwhite），三種版本 2026-09-17 定案全收
-  'hamster-stand': '站姿倉鼠',
-  'hamster-jump': '活潑倉鼠',
-  duck: '可爾鴨',
-};
+  // 原有
+  cat: '橘貓', dog: '柴犬', mouse: '小灰鼠', duck: '可爾鴨', hamster: '倉鼠',
+  // 十二生肖
+  'zodiac-rat': '生肖鼠', 'zodiac-ox': '生肖牛', 'zodiac-tiger': '生肖虎', 'zodiac-rabbit': '生肖兔',
+  'zodiac-dragon': '生肖龍', 'zodiac-snake': '生肖蛇', 'zodiac-horse': '生肖馬', 'zodiac-goat': '生肖羊',
+  'zodiac-monkey': '生肖猴', 'zodiac-rooster': '生肖雞', 'zodiac-dog': '生肖狗', 'zodiac-pig': '生肖豬',
+  // 台灣特有種
+  'tw-leopardcat': '石虎', 'tw-bluemagpie': '台灣藍鵲', 'tw-blackbear': '台灣黑熊', 'tw-macaque': '台灣獼猴',
+  'tw-pheasant': '帝雉', 'tw-sikadeer': '梅花鹿', 'tw-muntjac': '山羌', 'tw-formosandog': '台灣犬', 'tw-pangolin': '穿山甲',
+}
 const TARGET_H = 220;
 const root = path.join(import.meta.dirname, '..');
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(ANIMALS);

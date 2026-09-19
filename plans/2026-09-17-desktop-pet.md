@@ -119,3 +119,7 @@ desktop-pet/
 ## Windows 置頂被蓋（2026-09-18，使用者實機回報 → 已修）
 症狀：Windows 上小動物會被其他視窗蓋住。無 Windows 機器，依 Electron 已知 issue 列三個假設，先做假設 1 給使用者驗。
 **成立的是假設 1**：置頂視窗失焦後被之後啟用的視窗蓋過（electron#20933／#23614／#31536，搭配 focusable:false）。修法 `main/windows.js keepOnTop()`：失焦與每 2 秒重新 `setAlwaysOnTop(true, 'screen-saver')`（mac 用 floating）。使用者以 v0.1.4-beta.1 實測「完全不被蓋」。
+
+
+## 內建動物大擴充（2026-09-19，使用者定案）
+倉鼠收斂回 1 隻（留 hamster-jump→hamster）。新增十二生肖（zodiac-*，文字生成）與九種台灣特有種（tw-*）：石虎/藍鵲/黑熊/獼猴用使用者 line-stickers 的 anchor 畫稿當參考圖，帝雉/梅花鹿/山羌/台灣犬/穿山甲文字生成。共 26 隻。生肖虎首次把「idle standing」畫進圖，加「ABSOLUTELY NO TEXT」重生。原始表在 assets/sheets/，參考圖來源見 line-stickers/anchor/。
