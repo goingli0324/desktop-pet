@@ -23,7 +23,7 @@ node scripts/build-builtin.mjs [<id>...]（id 見 scripts/build-builtin.mjs 的 
 5. **切格器的兩個模式**：`keyEnclosed=false`（單張圖，只刪邊緣連通背景，保護淺色肚子）／`keyEnclosed=true`（AI 表，背景是我們指定的洋紅，可去封閉口袋）。搞反會挖穿角色或留洋紅點。改演算法先跑 `npm test`，fixture 是真實生成結果。
 6. **金鑰**只經 `main/secrets.js`（safeStorage）。不進 settings.json、不進 log、不回明文給 renderer（只回尾四碼）。Gemini 呼叫金鑰走 header，不走 query string。
 7. **打包設定**（package.json `build`）：`files` 白名單決定哪些東西進 app，`assets/builtin` 與 `renderer/shared` 缺一不可（main 與 renderer 都 import 後者）；`assets/sheets` 刻意排除（3 MB 原始表只給產出腳本用）。
-8. **內建動物 id**：`builtin-<animal>`，`ensureBuiltinPets` 以 id 判斷已複製過就不覆蓋；改內建素材後，使用者端要刪 `userData/pets/builtin-<animal>/` 才會拿到新版。
+8. **內建動物 id**：`builtin-<animal>`，`ensureBuiltinPets` 以 id 判斷已複製過就不覆蓋；改內建素材後，使用者端要刪 `userData/pets/builtin-<animal>/` 才會拿到新版。`pruneRemovedBuiltins` 會清掉 userData 裡已不再出貨的 builtin-*（升級收斂/改名用），只動 builtin-*、不碰 pet-*。
 
 ## 內建動物體型
 `scripts/build-builtin.mjs` 的 `SIZES` 表決定每隻成品 PNG 高度＝`BASE_H×相對體型`（鼠 0.5、牛 1.6、熊 1.6…），螢幕上大小按真實體型；改體型改這張表重建即可，不動程式。

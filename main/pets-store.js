@@ -18,8 +18,27 @@ const petsDir = () => path.join(app.getPath('userData'), 'pets');
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const builtinRoot = () => path.join(app.getAppPath(), 'assets', 'builtin');
 
+/** 清掉 userData 裡「已不再隨 app 出貨」的內建寵物（例如舊版收斂/改名的），並從 counts 移除。只動 builtin-*，不碰使用者匯入的 pet-*。 */
+function pruneRemovedBuiltins() {
+  if (!fs.existsSync(petsDir())) return;
+  const shipped = new Set(fs.readdirSync(builtinRoot())
+    .filter((a) => fs.existsSync(path.join(builtinRoot(), a, 'pet.json')))
+    .map((a) => JSON.parse(fs.readFileSync(path.join(builtinRoot(), a, 'pet.json'), 'utf8')).id));
+  let counts = null;
+  for (const id of fs.readdirSync(petsDir())) {
+    if (!id.startsWith('builtin-') || shipped.has(id)) continue;
+    const dir = path.join(petsDir(), id);
+    if (path.dirname(dir) !== petsDir()) continue;
+    fs.rmSync(dir, { recursive: true, force: true });
+    counts = counts || { ...readSettings().counts };
+    delete counts[id];
+  }
+  if (counts) { if (!Object.keys(counts).length) counts[BUILTIN_ID] = 1; updateSettings({ counts }); }
+}
+
 /** 把 assets/builtin/<animal>/ 全部複製進 userData（已存在的不覆蓋，使用者可能改過名）。 */
 export function ensureBuiltinPets() {
+  pruneRemovedBuiltins();
   for (const animal of fs.readdirSync(builtinRoot())) {
     const src = path.join(builtinRoot(), animal);
     if (!fs.existsSync(path.join(src, 'pet.json'))) continue;
