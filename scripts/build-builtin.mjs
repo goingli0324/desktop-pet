@@ -10,9 +10,9 @@ const ANIMALS = {
   // 原有
   cat: '橘貓', 'cat-calico': '三花貓', dog: '柴犬', duck: '可爾鴨', hamster: '倉鼠',
   // 十二生肖
-  'zodiac-rat': '生肖鼠', 'zodiac-ox': '生肖牛', 'zodiac-tiger': '生肖虎', 'zodiac-rabbit': '生肖兔',
-  'zodiac-dragon': '生肖龍', 'zodiac-snake': '生肖蛇', 'zodiac-horse': '生肖馬', 'zodiac-goat': '生肖羊',
-  'zodiac-monkey': '生肖猴', 'zodiac-rooster': '生肖雞', 'zodiac-dog': '生肖狗', 'zodiac-pig': '生肖豬',
+  'zodiac-rat': '子鼠', 'zodiac-ox': '丑牛', 'zodiac-tiger': '寅虎', 'zodiac-rabbit': '卯兔',
+  'zodiac-dragon': '辰龍', 'zodiac-snake': '巳蛇', 'zodiac-horse': '午馬', 'zodiac-goat': '未羊',
+  'zodiac-monkey': '申猴', 'zodiac-rooster': '酉雞', 'zodiac-dog': '戌狗', 'zodiac-pig': '亥豬',
   // 台灣特有種
   'tw-leopardcat': '石虎', 'tw-bluemagpie': '台灣藍鵲', 'tw-blackbear': '台灣黑熊', 'tw-macaque': '台灣獼猴',
   'tw-pheasant': '帝雉', 'tw-sikadeer': '梅花鹿', 'tw-muntjac': '山羌', 'tw-formosandog': '台灣犬', 'tw-pangolin': '穿山甲',
