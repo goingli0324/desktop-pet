@@ -106,8 +106,13 @@ export function loadPet(id) {
   const meta = readPetMeta(id);
   if (!meta) return null;
   const frames = {};
-  for (const name of FRAME_NAMES) frames[name] = frameDataUrl(meta.id, meta.frames[name] || meta.frames.idle);
-  return { id: meta.id, name: meta.name, source: meta.source, procedural: !!meta.procedural, frames };
+  const sizes = {};
+  for (const name of FRAME_NAMES) {
+    const file = meta.frames[name] || meta.frames.idle;
+    frames[name] = frameDataUrl(meta.id, file);
+    sizes[name] = pngSize(meta.id, file);
+  }
+  return { id: meta.id, name: meta.name, source: meta.source, procedural: !!meta.procedural, frames, sizes };
 }
 
 /**
@@ -157,6 +162,16 @@ function readPetMeta(id) {
     if (err.code !== 'ENOENT') log('error', 'pet.json 壞掉', { id, message: err.message });
     return null;
   }
+}
+
+function pngSize(id, file) {
+  try {
+    const fd = fs.openSync(path.join(petsDir(), id, path.basename(file)), 'r');
+    const buf = Buffer.alloc(24);
+    fs.readSync(fd, buf, 0, 24, 0);
+    fs.closeSync(fd);
+    return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
+  } catch { return [100, 100]; }
 }
 
 function frameDataUrl(id, file) {

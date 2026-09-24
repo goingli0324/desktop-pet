@@ -126,3 +126,13 @@ desktop-pet/
 
 ## 相對體型（2026-09-19）
 使用者要「鼠本來就比較小」→ 加 `SIZES` 表，成品 PNG 高度＝BASE_H(200)×相對體型，不再全部等高。overlay 的全域 scale 疊在上面，相對比例維持。
+
+## 多螢幕支援（2026-09-24，使用者選做法 A）
+問題：覆蓋視窗只罩主螢幕 workArea，寵物出不去；macOS「分離空間」開啟時單一視窗無法橫跨螢幕。
+做法 A（每螢幕一視窗 + 主程序統一模擬）：
+- **模擬搬到主程序**（`main/simulation.js`）：actors[] 用「全域螢幕座標」，狀態機（walk/run/hop/sleep/drag/land）由 overlay.js 移植過來（純數學，無 DOM）。主程序跑 ~60fps loop，用 `screen.getCursorScreenPoint()` 取全域游標做 hover/drag，用 `getAllDisplays()` 的 workArea 當各螢幕範圍、聯集當漫遊空間。
+- **每個螢幕一個透明覆蓋視窗**（`createOverlayWindows`），各罩自己的 workArea（全域座標）。渲染端變成「純畫圖」：收主程序每幀送來的「這個螢幕上的寵物清單」（已轉本地座標＋幀名＋變形），畫出來即可。
+- **點擊穿透**：主程序每幀依「游標是否壓在某螢幕上的某隻寵物」逐視窗設 ignore-mouse；拖曳期間全視窗關穿透以確保 mouseup 收得到。
+- **寵物尺寸**：主程序算 bbox 需要幀像素大小 → `pets-store` 的 loadActivePets 附上每幀 w/h（讀 PNG IHDR）。
+- 交棒不需要（全域單一模擬，寵物跨螢幕只是座標連續變化，落在哪個螢幕就由哪個視窗畫）。跨螢幕接縫會有一次「換視窗畫」的視覺跳動，可接受。
+- 螢幕增減／解析度變更：重建視窗集合。

@@ -2,16 +2,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, screen, shell } from 'electron';
-import { createOverlayWindow, createSettingsWindow, fitOverlayToWorkArea } from './windows.js';
+import { createOverlayWindows, createSettingsWindow, displayLayout } from './windows.js';
+import { createSimulation } from './simulation.js';
 import * as store from './pets-store.js';
 import * as secrets from './secrets.js';
 import { generateSpriteSheet, GeminiError } from './gemini.js';
 import { log, logDir } from './log.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-let overlay = null;
+let overlays = new Map();   // displayId → BrowserWindow
 let settingsWin = null;
 let tray = null;
+let sim = null;
+let simTimer = null;
+let lastTick = 0;
+let ignoreState = new Map(); // displayId → 目前是否穿透（避免每幀重設）
+const FRAME_MS = 1000 / 60;
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -31,15 +37,52 @@ const ALLOWED_EXTERNAL_URLS = new Set(['https://aistudio.google.com/apikey']);
 function boot() {
   store.ensureBuiltinPets();
   app.dock?.hide(); // 純 tray app，不佔 Dock
-  overlay = createOverlayWindow();
-  overlay.on('closed', () => { overlay = null; });
+  sim = createSimulation({ getDisplays: displayLayout, getScale: () => store.readSettings().scale, isPaused: () => store.readSettings().paused });
+  sim.setPets(store.loadActivePets());
+  buildOverlays();
   createTray();
   registerIpc();
-  screen.on('display-metrics-changed', () => fitOverlayToWorkArea(overlay));
-  screen.on('display-added', () => fitOverlayToWorkArea(overlay));
-  screen.on('display-removed', () => fitOverlayToWorkArea(overlay));
+  startLoop();
+  const rebuild = () => buildOverlays();
+  screen.on('display-metrics-changed', rebuild);
+  screen.on('display-added', rebuild);
+  screen.on('display-removed', rebuild);
   // 首次啟動：系統匣是唯一入口，非工程師不會知道，所以自動開一次設定頁
   if (!fs.existsSync(path.join(app.getPath('userData'), 'settings.json'))) { store.updateSettings({}); openSettings(); }
+}
+
+/** 依目前顯示器重建覆蓋視窗集合（首次與顯示器增減／解析度變更時）。 */
+function buildOverlays() {
+  for (const win of overlays.values()) if (!win.isDestroyed()) win.destroy();
+  overlays = createOverlayWindows();
+  ignoreState = new Map();
+  for (const id of overlays.keys()) ignoreState.set(id, true);
+}
+
+function startLoop() {
+  lastTick = Date.now();
+  clearInterval(simTimer);
+  simTimer = setInterval(() => {
+    const now = Date.now();
+    const dt = Math.min(0.1, (now - lastTick) / 1000);
+    lastTick = now;
+    if (!sim) return;
+    sim.setCursor(screen.getCursorScreenPoint());
+    sim.tick(dt);
+    const lists = sim.renderLists();
+    const hovered = sim.hoveredActor();
+    const dragging = sim.isDragging();
+    for (const [id, win] of overlays) {
+      if (win.isDestroyed()) continue;
+      const items = lists[id] || [];
+      // 該視窗是否有游標壓著的寵物（或拖曳中）→ 決定穿透
+      const cursor = screen.getCursorScreenPoint();
+      const wantIgnore = dragging ? false : !(hovered && items.some((it) => it.grabTarget));
+      const grab = !!(hovered && items.some((it) => it.grabTarget));
+      if (ignoreState.get(id) !== wantIgnore) { win.setIgnoreMouseEvents(wantIgnore, { forward: true }); ignoreState.set(id, wantIgnore); }
+      win.webContents.send('overlay:draw', { items, grab });
+    }
+  }, FRAME_MS);
 }
 
 // 視窗全關也不結束：這是常駐程式，只有 tray 的「結束」會退出。
@@ -81,18 +124,26 @@ function broadcast(channel, payload) {
 }
 
 function broadcastActivePets() {
-  broadcast('pets:changed', store.loadActivePets());
+  const list = store.loadActivePets();
+  if (sim) sim.setPets(list);
+  broadcast('pets:changed', list);
 }
 
 function registerIpc() {
-  // overlay
+  // overlay（多螢幕 drawer）
   ipcMain.handle('pets:active', () => store.loadActivePets());
   ipcMain.handle('state:get', () => store.readSettings());
-  ipcMain.on('overlay:ignore-mouse', (event, ignore) => {
-    if (!overlay || event.sender !== overlay.webContents) return; // 只有覆蓋層能切穿透
-    overlay.setIgnoreMouseEvents(!!ignore, { forward: true });
+  ipcMain.handle('overlay:init', (_e, displayId) => {
+    const d = displayLayout().find((x) => x.id === displayId) || displayLayout()[0];
+    return { display: d };
+  });
+  ipcMain.on('overlay:mouse', (_e, type) => {
+    if (!sim) return;
+    if (type === 'down') sim.startDrag();
+    else if (type === 'up') sim.endDrag();
   });
   ipcMain.on('overlay:menu', (event) => {
+    if (sim && !sim.hoveredActor()) return; // 只有壓在寵物上按右鍵才出選單
     const { paused } = store.readSettings();
     Menu.buildFromTemplate([
       { label: '設定…', click: openSettings },

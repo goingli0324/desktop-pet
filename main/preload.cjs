@@ -9,12 +9,14 @@ const on = (channel) => (cb) => {
 };
 
 contextBridge.exposeInMainWorld('pet', {
-  // overlay
+  // overlay（多螢幕：每視窗一個 drawer，模擬在主程序）
   getActivePets: invoke('pets:active'),
-  getState: invoke('state:get'),
-  setIgnoreMouse: (ignore) => ipcRenderer.send('overlay:ignore-mouse', ignore),
+  overlayInit: () => ipcRenderer.invoke('overlay:init', Number(new URLSearchParams(location.search).get('d'))),
+  onDraw: on('overlay:draw'),
+  petMouse: (type) => ipcRenderer.send('overlay:mouse', type),
   showPetMenu: () => ipcRenderer.send('overlay:menu'),
   onPetsChanged: on('pets:changed'),
+  getState: invoke('state:get'),
   onStateChanged: on('state:changed'),
   // settings
   listPets: invoke('pets:list'),
