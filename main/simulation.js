@@ -47,7 +47,7 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     const next = [];
     const nextDefs = new Map();
     for (const p of list) {
-      nextDefs.set(p.id, { id: p.id, procedural: !!p.procedural, sizes: p.sizes, flying: FLYERS.has(p.id) });
+      nextDefs.set(p.id, { id: p.id, procedural: !!p.procedural, sizes: p.sizes, flying: FLYERS.has(p.id.replace(/^builtin-/, '')) });
     }
     defs = nextDefs;
     for (const p of list) {
