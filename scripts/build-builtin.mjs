@@ -8,7 +8,7 @@ import { sliceSheet, FRAME_NAMES } from '../renderer/shared/sprite-slicer.js';
 
 const ANIMALS = {
   // 原有
-  cat: '橘貓', 'cat-calico': '三花貓', dog: '柴犬', duck: '柯爾鴨', hamster: '倉鼠',
+  cat: '橘貓', 'cat-calico': '三花貓', dog: '柴犬', duck: '柯爾鴨', hamster: '倉鼠', 'hamster-snow': '雪倉鼠',
   // 十二生肖
   'zodiac-rat': '子鼠', 'zodiac-ox': '丑牛', 'zodiac-tiger': '寅虎', 'zodiac-rabbit': '卯兔',
   'zodiac-dragon': '辰龍', 'zodiac-snake': '巳蛇', 'zodiac-horse': '午馬', 'zodiac-goat': '未羊',
@@ -39,7 +39,7 @@ const SIZES = {
   'tw-pheasant': 0.54, 'tw-bluemagpie': 0.54,
   'zodiac-snake': 0.50,
   'zodiac-rabbit': 0.47,
-  'zodiac-rat': 0.43, hamster: 0.43,
+  'zodiac-rat': 0.43, hamster: 0.43, 'hamster-snow': 0.45,
 }
 const BASE_H = 200;
 const root = path.join(import.meta.dirname, '..');
