@@ -15,6 +15,13 @@ const WALK_BOB_PX = 3;
 const MIN_TRAVEL = 120;
 const PROCEDURAL = { bobPx: 6, tiltRad: 0.10, squash: 0.12 };
 const FRAME_NAMES = ['walk0', 'walk1', 'walk2', 'walk3', 'idle', 'crouch', 'air', 'land'];
+// 會飛的動物：自由飄移、上下浮動、不落地（辰龍、台灣藍鵲、帝雉）
+const FLYERS = new Set(['zodiac-dragon', 'tw-bluemagpie', 'tw-pheasant']);
+const FLY_SPEED = [70, 130];
+const FLY_FPS = 6;
+const HOVER_SECONDS = [1.5, 4];
+const FLY_BOB = { hz: 2.2, px: 10 };
+const FLY_TILT = 0.06;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -40,7 +47,7 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     const next = [];
     const nextDefs = new Map();
     for (const p of list) {
-      nextDefs.set(p.id, { id: p.id, procedural: !!p.procedural, sizes: p.sizes });
+      nextDefs.set(p.id, { id: p.id, procedural: !!p.procedural, sizes: p.sizes, flying: FLYERS.has(p.id) });
     }
     defs = nextDefs;
     for (const p of list) {
@@ -57,7 +64,7 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
   function spawn(def) {
     const u = unionArea();
     const a = { def, pos: { x: rand(u.x0 + 100, u.x1 - 100), y: rand(u.y0 + 100, u.y1 - 60) }, facing: Math.random() < 0.5 ? -1 : 1, state: null, dragging: false };
-    enter(a, 'idle');
+    enter(a, def.flying ? 'hover' : 'idle');
     a.state.t = rand(0, a.state.dur);
     clampToScreens(a);
     return a;
@@ -67,9 +74,11 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     a.state = { name, t: 0, ...extra };
     if (name === 'idle') a.state.dur = rand(...IDLE_SECONDS);
     if (name === 'sleep') a.state.dur = rand(...SLEEP_SECONDS);
+    if (name === 'hover') a.state.dur = rand(...HOVER_SECONDS);
   }
 
-  function pickNextAction() {
+  function pickNextAction(a) {
+    if (a.def.flying) return Math.random() < 0.78 ? 'fly' : 'hover';
     const total = Object.values(ACTION_WEIGHTS).reduce((s, w) => s + w, 0);
     let r = Math.random() * total;
     for (const [name, w] of Object.entries(ACTION_WEIGHTS)) { r -= w; if (r <= 0) return name; }
@@ -77,6 +86,13 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
   }
 
   function startAction(a, name) {
+    if (name === 'fly') {
+      const target = randomTargetFly(a);
+      a.facing = target.x >= a.pos.x ? 1 : -1;
+      enter(a, 'fly', { target, speed: rand(...FLY_SPEED) });
+      return;
+    }
+    if (name === 'hover') { enter(a, 'hover'); return; }
     if (name === 'walk' || name === 'run') {
       const target = randomTarget(a);
       const speed = name === 'walk' ? rand(...WALK_SPEED) : rand(...RUN_SPEED);
@@ -91,6 +107,15 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
   }
 
   // 目標點：全域聯集內、接近水平（±20°）、且落在某個實體螢幕上（跳過螢幕間空隙）
+  function randomTargetFly(a) {
+    const u = unionArea();
+    for (let i = 0; i < 40; i++) {
+      const x = rand(u.x0, u.x1), y = rand(u.y0, u.y1);
+      if (Math.hypot(x - a.pos.x, y - a.pos.y) >= MIN_TRAVEL && displayAt(x, y)) return { x, y };
+    }
+    const d = getDisplays()[0];
+    return { x: d.x + d.width / 2, y: d.y + d.height / 2 };
+  }
   function randomTarget(a) {
     const u = unionArea();
     for (let i = 0; i < 40; i++) {
@@ -110,8 +135,18 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     switch (s.name) {
       case 'idle':
       case 'sleep':
-        if (s.t >= s.dur) startAction(a, pickNextAction());
+      case 'hover':
+        if (s.t >= s.dur) startAction(a, pickNextAction(a));
         break;
+      case 'fly': {
+        const dx = s.target.x - a.pos.x, dy = s.target.y - a.pos.y;
+        const d = Math.hypot(dx, dy);
+        const step = s.speed * dt;
+        if (d <= step) { a.pos = { ...s.target }; enter(a, 'hover'); break; }
+        a.pos.x += (dx / d) * step; a.pos.y += (dy / d) * step;
+        if (!displayAt(a.pos.x, a.pos.y)) { clampToScreens(a); enter(a, 'hover'); }
+        break;
+      }
       case 'walk':
       case 'run': {
         const dx = s.target.x - a.pos.x, dy = s.target.y - a.pos.y;
@@ -152,6 +187,7 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
       case 'run': return `walk${Math.floor(s.t * RUN_FPS) % 4}`;
       case 'hop': return s.phase === 'air' ? 'air' : s.phase === 'crouch' ? 'crouch' : 'land';
       case 'land': return 'land';
+      case 'fly': return `walk${Math.floor(s.t * FLY_FPS) % 4}`;
       case 'dragged': return 'air';
       default: return 'idle';
     }
@@ -171,6 +207,10 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
       const hz = s.name === 'walk' ? 3 : 6;
       lift = Math.abs(Math.sin(s.t * Math.PI * hz)) * (a.def.procedural ? PROCEDURAL.bobPx : WALK_BOB_PX);
       if (a.def.procedural) rot = Math.sin(s.t * Math.PI * hz) * PROCEDURAL.tiltRad;
+    }
+    if (a.def.flying && (s.name === 'fly' || s.name === 'hover')) {
+      lift += FLY_BOB.px * Math.sin(s.t * FLY_BOB.hz);
+      rot += FLY_TILT * Math.sin(s.t * FLY_BOB.hz * 0.5);
     }
     if (s.name === 'dragged') rot = Math.sin(s.t * 6) * 0.08;
     return { lift, sx, sy, rot };
@@ -240,7 +280,7 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     endDrag() {
       if (!dragActor) return;
       const a = dragActor; dragActor = null;
-      enter(a, 'land');
+      enter(a, a.def.flying ? 'hover' : 'land');
       a.facing = Math.random() < 0.5 ? -1 : 1;
     },
     isDragging() { return !!dragActor; },

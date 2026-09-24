@@ -34,3 +34,4 @@ node scripts/build-builtin.mjs [<id>...]（id 見 scripts/build-builtin.mjs 的 
 - 正常運作時安靜；只有錯誤寫 `userData/logs/app.log`。
 - **多螢幕架構**：模擬在 `main/simulation.js`（全域座標 actors[]、狀態機、hover/drag），`main/index.js` 跑 ~60fps loop 並每幀把「各螢幕上的寵物（本地座標＋幀名＋變形）」送給對應覆蓋視窗；`renderer/overlay/overlay.js` 只是 drawer（預載幀圖、收 `overlay:draw` 畫出、轉發滑鼠）。每個螢幕一個覆蓋視窗（`createOverlayWindows`），螢幕增減會 `buildOverlays` 重建。
 - 主程序算寵物 bbox 需要幀像素大小 → `loadActivePets` 附 `sizes`（讀 PNG IHDR）。
+- **會飛的動物**：`main/simulation.js` 的 `FLYERS` 集合（辰龍/藍鵲/帝雉）走 fly/hover 狀態，自由飄移（不限水平）＋上下浮動、不落地；改哪些會飛改這個集合。
