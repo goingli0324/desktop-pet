@@ -1,6 +1,6 @@
 {
   "id": "builtin-duck",
-  "name": "可爾鴨（內建）",
+  "name": "柯爾鴨（內建）",
   "source": "builtin",
   "procedural": false,
   "frames": {
