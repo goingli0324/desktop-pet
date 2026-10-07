@@ -10,7 +10,8 @@
 3. 匯入新動物：
    - 有 Gemini 金鑰：選一張圖 → 「用 AI 生成動作」→ 約 10–30 秒 → 看到 8 格預覽 → 「採用這隻」。
    - 沒有金鑰：「改用單張圖」，小動物會用同一張圖做上下擺動與壓扁拉伸。
-4. 金鑰在 <https://aistudio.google.com/apikey> 取得，貼進設定頁「Gemini 金鑰」。金鑰加密存在本機，不會傳到 Gemini 以外的地方。
+4. 照顧牠們：在小動物上按右鍵 →「餵食」，牠會走過去吃；游標在牠身上來回滑就是摸摸，會冒愛心。太久沒理，牠會跑到游標旁邊冒 💭，再久會冒 💢 跺腳鬧脾氣，餵一下或摸一下就好了。離開電腦 5 分鐘大家會一起睡。不會餓死，也不會跳通知打擾你。
+5. 金鑰在 <https://aistudio.google.com/apikey> 取得，貼進設定頁「Gemini 金鑰」。金鑰加密存在本機，不會傳到 Gemini 以外的地方。
 
 生成動作的圖片建議：單一角色、側面或四分之三側面、背景乾淨。照片也可以，但畫風可能被畫成卡通。
 
@@ -30,7 +31,7 @@ npm test
 - macOS：`~/Library/Application Support/desktop-pet/`
 - Windows：`%APPDATA%\desktop-pet\`
 
-裡面有 `pets/`（每隻一個資料夾）、`settings.json`、`gemini.key`（加密）、`logs/app.log`（只記錯誤）。
+裡面有 `pets/`（每隻一個資料夾）、`settings.json`、`needs.json`（肚子與心情）、`gemini.key`（加密）、`logs/app.log`（只記錯誤）。
 
 ## 正式簽章（給不特定人下載時）
 

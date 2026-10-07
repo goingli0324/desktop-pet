@@ -22,14 +22,46 @@ const FLY_FPS = 6;
 const HOVER_SECONDS = [1.5, 4];
 const FLY_BOB = { hz: 2.2, px: 10 };
 const FLY_TILT = 0.06;
+// 互動養成（數值在 main/needs.js，這裡只負責「看起來」）
+const EAT_SECONDS = 2.2;
+const STOMP_SECONDS = 1.6;
+const SULK_SECONDS = [4, 8];
+const AWAY_SLEEP_SECONDS = [30, 60];
+const BUBBLE_SECONDS = 2.5;
+const PET_RUB_PX = 900;          // 游標在身上來回累積這麼多距離算摸一次
+const PET_RUB_DECAY = 300;       // 每秒消退（停手就歸零）
+const PET_STOP_PX = 150;         // 摸到這個程度牠就停下來
+const PET_COOLDOWN = 10;
+const FOOD_TTL = 25;             // 沒吃到的食物多久後消失
+const MOOD_SPEED = { hungry: 0.7, angry: 0.8 };
+const SEEK_MAX_ANGLE = 35 * Math.PI / 180;
+const FOOD_EMOJI = {
+  cat: '🐟', 'cat-calico': '🐟', 'tw-leopardcat': '🐟',
+  hamster: '🌻', 'hamster-snow': '🌻', 'zodiac-rat': '🌻', 'zodiac-rabbit': '🥕',
+  'zodiac-ox': '🌿', 'zodiac-horse': '🌿', 'zodiac-goat': '🌿', 'tw-sikadeer': '🌿', 'tw-muntjac': '🌿',
+  'zodiac-monkey': '🍌', 'tw-macaque': '🍌', 'tw-blackbear': '🍯', 'tw-pangolin': '🐜',
+  duck: '🌽', 'zodiac-rooster': '🌽', 'tw-bluemagpie': '🍓', 'tw-pheasant': '🌽',
+};
+const DEFAULT_FOOD = '🍖';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
-export function createSimulation({ getDisplays, getScale, isPaused }) {
+const noop = () => {};
+
+/**
+ * @param {object} o
+ * @param {(petId:string)=>string} [o.getMood] 'happy'|'angry'|'hungry'|'lonely'|'content'
+ * @param {(petId:string)=>void} [o.onPet] 被摸了一次
+ * @param {(petId:string)=>void} [o.onAte] 吃完一份食物
+ * @param {()=>boolean} [o.isAway] 使用者不在電腦前 → 全部去睡
+ */
+export function createSimulation({ getDisplays, getScale, isPaused, getMood = () => 'content', onPet = noop, onAte = noop, isAway = () => false }) {
   let defs = new Map();   // petId → { procedural, sizes:{name:[w,h]} }
-  let actors = [];        // { def, pos, facing, state, dragging }
+  let actors = [];        // { def, pos, facing, state, dragging, bubble, rub, petCooldown }
   let cursor = null;      // 全域游標 {x,y} 或 null
+  let lastCursor = null;
   let dragActor = null;
+  let foods = [];         // { x, y, emoji, ttl, actor }
 
   function unionArea() {
     const ds = getDisplays();
@@ -47,7 +79,8 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     const next = [];
     const nextDefs = new Map();
     for (const p of list) {
-      nextDefs.set(p.id, { id: p.id, procedural: !!p.procedural, sizes: p.sizes, flying: FLYERS.has(p.id.replace(/^builtin-/, '')) });
+      const animal = p.id.replace(/^builtin-/, '');
+      nextDefs.set(p.id, { id: p.id, procedural: !!p.procedural, sizes: p.sizes, flying: FLYERS.has(animal), food: FOOD_EMOJI[animal] || DEFAULT_FOOD });
     }
     defs = nextDefs;
     for (const p of list) {
@@ -57,13 +90,14 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     }
     actors = next;
     if (dragActor && !actors.includes(dragActor)) dragActor = null;
+    foods = foods.filter((f) => actors.includes(f.actor));
   }
 
   function frameSize(a, name) { return a.def.sizes[name] || a.def.sizes.idle || [100, 100]; }
 
   function spawn(def) {
     const u = unionArea();
-    const a = { def, pos: { x: rand(u.x0 + 100, u.x1 - 100), y: rand(u.y0 + 100, u.y1 - 60) }, facing: Math.random() < 0.5 ? -1 : 1, state: null, dragging: false };
+    const a = { def, pos: { x: rand(u.x0 + 100, u.x1 - 100), y: rand(u.y0 + 100, u.y1 - 60) }, facing: Math.random() < 0.5 ? -1 : 1, state: null, dragging: false, bubble: null, rub: 0, petCooldown: 0 };
     enter(a, def.flying ? 'hover' : 'idle');
     a.state.t = rand(0, a.state.dur);
     clampToScreens(a);
@@ -72,12 +106,27 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
 
   function enter(a, name, extra = {}) {
     a.state = { name, t: 0, ...extra };
+    if (extra.dur !== undefined) return;
     if (name === 'idle') a.state.dur = rand(...IDLE_SECONDS);
     if (name === 'sleep') a.state.dur = rand(...SLEEP_SECONDS);
     if (name === 'hover') a.state.dur = rand(...HOVER_SECONDS);
+    if (name === 'eat') a.state.dur = EAT_SECONDS;
+    if (name === 'stomp') a.state.dur = STOMP_SECONDS;
   }
 
+  const restState = (a) => (a.def.flying ? 'hover' : 'idle');
+  function say(a, emoji, dur = BUBBLE_SECONDS) { a.bubble = { emoji, t: 0, dur }; }
+  function faceCursor(a, away = false) { if (cursor) a.facing = (cursor.x >= a.pos.x) !== away ? 1 : -1; }
+
+  // 情緒會先決定要不要做「情緒動作」，沒有才走原本的隨機動作
   function pickNextAction(a) {
+    if (isAway()) return 'awaySleep';
+    const mood = getMood(a.def.id);
+    const roll = Math.random();
+    if (mood === 'angry') { if (roll < 0.4) return 'stomp'; if (roll < 0.75) return 'sulk'; }
+    if (mood === 'lonely' && cursor && roll < 0.45) return 'seek';
+    if (mood === 'hungry' && roll < 0.3) return 'beg';
+    if (mood === 'happy' && roll < 0.35) return a.def.flying ? 'fly' : 'hop';
     if (a.def.flying) return Math.random() < 0.78 ? 'fly' : 'hover';
     const total = Object.values(ACTION_WEIGHTS).reduce((s, w) => s + w, 0);
     let r = Math.random() * total;
@@ -85,17 +134,37 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     return 'walk';
   }
 
+  function moveTo(a, target, speed, extra = {}) {
+    a.facing = target.x >= a.pos.x ? 1 : -1;
+    enter(a, a.def.flying ? 'fly' : 'walk', { target, speed: speed * (MOOD_SPEED[getMood(a.def.id)] || 1), ...extra });
+  }
+
   function startAction(a, name) {
+    if (name === 'awaySleep') { enter(a, 'sleep', { dur: rand(...AWAY_SLEEP_SECONDS), away: true }); return; }
+    if (name === 'stomp') { faceCursor(a, true); enter(a, 'stomp'); say(a, '💢', STOMP_SECONDS + 0.5); return; }
+    if (name === 'sulk') { faceCursor(a, true); enter(a, restState(a), { dur: rand(...SULK_SECONDS) }); say(a, '💢', 2); return; }
+    if (name === 'beg') { faceCursor(a); enter(a, restState(a)); say(a, a.def.food); return; }
+    if (name === 'seek') {
+      const side = cursor.x >= a.pos.x ? -1 : 1; // 停在游標靠自己這一側
+      const target = { x: cursor.x + side * rand(70, 130), y: a.def.flying ? cursor.y : cursor.y + rand(20, 60) };
+      if (!a.def.flying) { // 地上走的坡度有限，太陡看起來像整張圖在滑
+        const maxDy = Math.abs(target.x - a.pos.x) * Math.tan(SEEK_MAX_ANGLE);
+        target.y = a.pos.y + Math.max(-maxDy, Math.min(maxDy, target.y - a.pos.y));
+      }
+      if (!displayAt(target.x, target.y)) { enter(a, restState(a)); return; }
+      moveTo(a, target, a.def.flying ? rand(...FLY_SPEED) : rand(...WALK_SPEED), { then: 'miss' });
+      return;
+    }
     if (name === 'fly') {
       const target = randomTargetFly(a);
       a.facing = target.x >= a.pos.x ? 1 : -1;
-      enter(a, 'fly', { target, speed: rand(...FLY_SPEED) });
+      enter(a, 'fly', { target, speed: rand(...FLY_SPEED) * (MOOD_SPEED[getMood(a.def.id)] || 1) });
       return;
     }
     if (name === 'hover') { enter(a, 'hover'); return; }
     if (name === 'walk' || name === 'run') {
       const target = randomTarget(a);
-      const speed = name === 'walk' ? rand(...WALK_SPEED) : rand(...RUN_SPEED);
+      const speed = (name === 'walk' ? rand(...WALK_SPEED) : rand(...RUN_SPEED)) * (MOOD_SPEED[getMood(a.def.id)] || 1);
       a.facing = target.x >= a.pos.x ? 1 : -1;
       enter(a, name, { target, speed });
     } else if (name === 'hop') {
@@ -129,22 +198,42 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
     return { x: d.x + d.width / 2, y: d.y + d.height / 2 };
   }
 
+  // 走／飛到目的地之後：吃東西、在游標旁等你、或一般休息
+  function arrive(a) {
+    const then = a.state.then;
+    if (then === 'eat') { const food = a.state.food; if (food) a.facing = food.x >= a.pos.x ? 1 : -1; enter(a, 'eat', { food }); return; }
+    if (then === 'miss') { faceCursor(a); enter(a, restState(a), { dur: rand(...SULK_SECONDS) }); say(a, '💭', 3); return; }
+    enter(a, restState(a));
+  }
+
   function update(a, dt) {
     const s = a.state;
     s.t += dt;
     switch (s.name) {
-      case 'idle':
       case 'sleep':
-      case 'hover':
+        if (s.away && !isAway()) { enter(a, restState(a), { dur: rand(0.8, 2) }); break; } // 人回來就醒，先發呆一下
         if (s.t >= s.dur) startAction(a, pickNextAction(a));
+        break;
+      case 'idle':
+      case 'hover':
+      case 'stomp':
+        if (s.t >= s.dur) startAction(a, pickNextAction(a));
+        break;
+      case 'eat':
+        if (s.t >= s.dur) {
+          foods = foods.filter((f) => f !== s.food);
+          onAte(a.def.id);
+          say(a, '❤️');
+          enter(a, restState(a));
+        }
         break;
       case 'fly': {
         const dx = s.target.x - a.pos.x, dy = s.target.y - a.pos.y;
         const d = Math.hypot(dx, dy);
         const step = s.speed * dt;
-        if (d <= step) { a.pos = { ...s.target }; enter(a, 'hover'); break; }
+        if (d <= step) { a.pos = { ...s.target }; arrive(a); break; }
         a.pos.x += (dx / d) * step; a.pos.y += (dy / d) * step;
-        if (!displayAt(a.pos.x, a.pos.y)) { clampToScreens(a); enter(a, 'hover'); }
+        if (!displayAt(a.pos.x, a.pos.y)) { clampToScreens(a); arrive(a); }
         break;
       }
       case 'walk':
@@ -152,9 +241,9 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
         const dx = s.target.x - a.pos.x, dy = s.target.y - a.pos.y;
         const d = Math.hypot(dx, dy);
         const step = s.speed * dt;
-        if (d <= step) { a.pos = { ...s.target }; enter(a, 'idle'); break; }
+        if (d <= step) { a.pos = { ...s.target }; arrive(a); break; }
         a.pos.x += (dx / d) * step; a.pos.y += (dy / d) * step;
-        if (!displayAt(a.pos.x, a.pos.y)) { clampToScreens(a); enter(a, 'idle'); } // 走進空隙就停
+        if (!displayAt(a.pos.x, a.pos.y)) { clampToScreens(a); arrive(a); } // 走進空隙就停
         break;
       }
       case 'hop': {
@@ -189,6 +278,8 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
       case 'land': return 'land';
       case 'fly': return `walk${Math.floor(s.t * FLY_FPS) % 4}`;
       case 'dragged': return 'air';
+      case 'eat': return a.def.flying ? 'idle' : (Math.floor(s.t * 3) % 2 ? 'crouch' : 'idle');
+      case 'stomp': return a.def.flying ? 'idle' : (Math.floor(s.t * 6) % 2 ? 'land' : 'idle');
       default: return 'idle';
     }
   }
@@ -212,6 +303,13 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
       lift += FLY_BOB.px * Math.sin(s.t * FLY_BOB.hz);
       rot += FLY_TILT * Math.sin(s.t * FLY_BOB.hz * 0.5);
     }
+    if (s.name === 'eat') rot = Math.sin(s.t * Math.PI * 6) * 0.06;
+    if (s.name === 'stomp') {
+      const k = Math.abs(Math.sin(s.t * Math.PI * 6));
+      sy = 1 - 0.1 * k; sx = 1 + 0.1 * k;
+      rot = Math.sin(s.t * Math.PI * 12) * 0.05;
+    }
+    if (a.def.flying && (s.name === 'eat' || s.name === 'stomp')) lift += FLY_BOB.px * Math.sin(s.t * FLY_BOB.hz);
     if (s.name === 'dragged') rot = Math.sin(s.t * 6) * 0.08;
     return { lift, sx, sy, rot };
   }
@@ -248,6 +346,24 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
 
   function inside(p, b) { return p.x >= b.x0 && p.x <= b.x1 && p.y >= b.y0 && p.y <= b.y1; }
 
+  // 摸摸：游標在牠身上來回移動（不用按鍵）累積距離，夠了就算一次；睡著的不吵、拖曳中不算
+  function detectPetting() {
+    const prev = lastCursor;
+    lastCursor = cursor; // 位移只算一次：游標沒動就是 0
+    if (!cursor || !prev || dragActor) return;
+    const a = actorAtCursor();
+    if (!a || a.state.name === 'sleep' || a.petCooldown > 0) return;
+    a.rub += Math.hypot(cursor.x - prev.x, cursor.y - prev.y);
+    // 開始被摸就停下來讓你摸（跑走的話游標追不上）
+    if (a.rub > PET_STOP_PX && ['walk', 'run', 'fly'].includes(a.state.name)) { faceCursor(a); enter(a, restState(a), { dur: 3 }); }
+    if (a.rub < PET_RUB_PX) return;
+    a.rub = 0;
+    a.petCooldown = PET_COOLDOWN;
+    onPet(a.def.id);
+    say(a, '❤️');
+    if (a.state.name === 'walk' || a.state.name === 'run' || a.state.name === 'stomp') { faceCursor(a); enter(a, restState(a)); }
+  }
+
   function actorAtCursor() {
     if (!cursor) return null;
     const ordered = [...actors].sort((a, b) => a.pos.y - b.pos.y);
@@ -266,7 +382,37 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
         if (a === dragActor) { a.state.t += dt; continue; }
         if (!paused && a.state.name !== 'dragged') update(a, dt);
         else a.state.t += dt;
+        if (a.bubble && (a.bubble.t += dt) >= a.bubble.dur) a.bubble = null;
+        a.rub = Math.max(0, a.rub - PET_RUB_DECAY * dt);
+        a.petCooldown = Math.max(0, a.petCooldown - dt);
       }
+      if (!paused) detectPetting();
+      for (const f of foods) f.ttl -= dt;
+      foods = foods.filter((f) => f.ttl > 0 || (f.actor.state.name === 'eat' && f.actor.state.food === f));
+    },
+    /** 右鍵「餵食」：食物掉在牠面前，牠走（飛）過去吃。 */
+    feed(a) {
+      if (!a || !actors.includes(a) || a === dragActor) return false;
+      foods = foods.filter((f) => f.actor !== a);
+      const d = displayAt(a.pos.x, a.pos.y) || getDisplays()[0];
+      let dir = a.facing;
+      let x = a.pos.x + dir * rand(70, 120);
+      if (x < d.x + 30 || x > d.x + d.width - 30) { dir = -dir; x = a.pos.x + dir * rand(70, 120); }
+      const food = { x, y: a.pos.y, emoji: a.def.food, ttl: FOOD_TTL, actor: a };
+      foods.push(food);
+      const { w } = actorSize(a);
+      moveTo(a, { x: x - dir * w * 0.35, y: food.y }, a.def.flying ? rand(...FLY_SPEED) : rand(...WALK_SPEED) * 1.3, { then: 'eat', food });
+      return true;
+    },
+    /** 每個螢幕要畫的食物（本地座標）。 */
+    foodLists() {
+      const out = {};
+      for (const d of getDisplays()) out[d.id] = [];
+      for (const f of foods) {
+        const d = displayAt(f.x, f.y);
+        if (d) out[d.id].push({ x: f.x - d.x, y: f.y - d.y, emoji: f.emoji });
+      }
+      return out;
     },
     hoveredActor() { return dragActor || actorAtCursor(); },
     startDrag() {
@@ -301,6 +447,7 @@ export function createSimulation({ getDisplays, getScale, isPaused }) {
             petId: a.def.id, frame: currentFrameName(a), facing: a.facing,
             x: a.pos.x - d.x, y: a.pos.y - d.y, w, h, lift, sx, sy, rot,
             sleeping: a.state.name === 'sleep', sleepT: a.state.t, grabTarget: a === hov,
+            bubble: a.bubble ? a.bubble.emoji : null, bubbleT: a.bubble ? a.bubble.t / a.bubble.dur : 0,
           });
         }
       }

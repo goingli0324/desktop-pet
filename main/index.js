@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, screen, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, powerMonitor, screen, shell } from 'electron';
 import { createOverlayWindows, createSettingsWindow, displayLayout } from './windows.js';
 import { createSimulation } from './simulation.js';
+import { createNeedsStore } from './needs.js';
 import * as store from './pets-store.js';
 import * as secrets from './secrets.js';
 import { generateSpriteSheet, GeminiError } from './gemini.js';
@@ -18,6 +19,15 @@ let simTimer = null;
 let lastTick = 0;
 let ignoreState = new Map(); // displayId → 目前是否穿透（避免每幀重設）
 const FRAME_MS = 1000 / 60;
+// 互動養成：數值每秒結算、每分鐘存檔。DESKTOP_PET_TIME_SCALE／DESKTOP_PET_AWAY_SECONDS 只給開發驗證加速用。
+const TIME_SCALE = Number(process.env.DESKTOP_PET_TIME_SCALE) || 1;
+const AWAY_SECONDS = Number(process.env.DESKTOP_PET_AWAY_SECONDS) || 300;
+const NEEDS_SAVE_MS = 60_000;
+let needs = null;
+let activeIds = [];
+let away = false;
+let needsAcc = 0;
+let needsSavedAt = 0;
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -37,8 +47,21 @@ const ALLOWED_EXTERNAL_URLS = new Set(['https://aistudio.google.com/apikey']);
 function boot() {
   store.ensureBuiltinPets();
   app.dock?.hide(); // 純 tray app，不佔 Dock
-  sim = createSimulation({ getDisplays: displayLayout, getScale: () => store.readSettings().scale, isPaused: () => store.readSettings().paused });
-  sim.setPets(store.loadActivePets());
+  needs = createNeedsStore({ file: path.join(app.getPath('userData'), 'needs.json'), timeScale: TIME_SCALE });
+  needs.load();
+  const initialPets = store.loadActivePets();
+  needs.catchUp(initialPets.map((p) => p.id));
+  sim = createSimulation({
+    getDisplays: displayLayout,
+    getScale: () => store.readSettings().scale,
+    isPaused: () => store.readSettings().paused,
+    getMood: (id) => needs.mood(id),
+    onPet: (id) => needs.pet(id),
+    onAte: (id) => needs.feed(id),
+    isAway: () => away,
+  });
+  setSimPets(initialPets);
+  app.on('before-quit', saveNeeds);
   buildOverlays();
   createTray();
   registerIpc();
@@ -68,8 +91,10 @@ function startLoop() {
     lastTick = now;
     if (!sim) return;
     sim.setCursor(screen.getCursorScreenPoint());
+    tickNeeds(dt);
     sim.tick(dt);
     const lists = sim.renderLists();
+    const foods = sim.foodLists();
     const hovered = sim.hoveredActor();
     const dragging = sim.isDragging();
     for (const [id, win] of overlays) {
@@ -80,9 +105,32 @@ function startLoop() {
       const wantIgnore = dragging ? false : !(hovered && items.some((it) => it.grabTarget));
       const grab = !!(hovered && items.some((it) => it.grabTarget));
       if (ignoreState.get(id) !== wantIgnore) { win.setIgnoreMouseEvents(wantIgnore, { forward: true }); ignoreState.set(id, wantIgnore); }
-      win.webContents.send('overlay:draw', { items, grab });
+      win.webContents.send('overlay:draw', { items, grab, foods: foods[id] || [] });
     }
   }, FRAME_MS);
+}
+
+/** 每秒結算一次肚子／心情；暫停時不扣（只把時間往前推）。 */
+function tickNeeds(dt) {
+  needsAcc += dt;
+  if (needsAcc < 1) return;
+  const seconds = needsAcc;
+  needsAcc = 0;
+  away = powerMonitor.getSystemIdleTime() >= AWAY_SECONDS;
+  if (store.readSettings().paused) needs.touchInactive([]);
+  else { needs.tick(seconds, !away, activeIds); needs.touchInactive(activeIds); }
+  if (Date.now() - needsSavedAt >= NEEDS_SAVE_MS) saveNeeds();
+}
+
+function saveNeeds() {
+  if (!needs) return;
+  needsSavedAt = Date.now();
+  try { needs.save(); } catch (err) { log('error', 'needs save failed', { message: err.message }); }
+}
+
+function setSimPets(list) {
+  activeIds = list.filter((p) => p.count > 0).map((p) => p.id);
+  sim.setPets(list);
 }
 
 // 視窗全關也不結束：這是常駐程式，只有 tray 的「結束」會退出。
@@ -125,7 +173,7 @@ function broadcast(channel, payload) {
 
 function broadcastActivePets() {
   const list = store.loadActivePets();
-  if (sim) sim.setPets(list);
+  if (sim) setSimPets(list);
   broadcast('pets:changed', list);
 }
 
@@ -143,9 +191,12 @@ function registerIpc() {
     else if (type === 'up') sim.endDrag();
   });
   ipcMain.on('overlay:menu', (event) => {
-    if (sim && !sim.hoveredActor()) return; // 只有壓在寵物上按右鍵才出選單
+    const target = sim && sim.hoveredActor();
+    if (!target) return; // 只有壓在寵物上按右鍵才出選單
     const { paused } = store.readSettings();
     Menu.buildFromTemplate([
+      { label: '餵食', enabled: !paused, click: () => sim.feed(target) },
+      { type: 'separator' },
       { label: '設定…', click: openSettings },
       { label: paused ? '繼續' : '暫停', click: () => setPaused(!paused) },
       { type: 'separator' },
@@ -159,6 +210,7 @@ function registerIpc() {
   ipcMain.handle('pets:delete', (_e, id) => {
     const wasActive = (store.readSettings().counts[String(id)] || 0) > 0;
     store.deletePet(String(id));
+    needs.remove(String(id));
     if (wasActive) broadcastActivePets(); // 刪沒在用的，桌面上的不要重生
     return store.readSettings().counts;
   });

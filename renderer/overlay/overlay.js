@@ -35,9 +35,10 @@ async function preloadImages(list) {
   imgs = next;
 }
 
-function draw({ items, grab }) {
+function draw({ items, grab, foods = [] }) {
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
   document.body.classList.toggle('grab', !!grab);
+  for (const f of foods) drawEmoji(f.emoji, f.x, f.y, 26, 1);
   for (const it of items) {
     const frames = imgs.get(it.petId);
     const img = frames && (frames[it.frame] || frames.idle);
@@ -49,7 +50,27 @@ function draw({ items, grab }) {
     ctx.drawImage(img, -it.w / 2, -it.h, it.w, it.h);
     ctx.restore();
     if (it.sleeping) drawZzz(it.x + it.w * 0.35 * it.facing, it.y - it.h - 6, it.sleepT);
+    if (it.bubble) drawBubble(it);
   }
+}
+
+// 表情泡泡（❤️ 💢 💭 食物）：頭頂斜上方，緩緩上飄，最後 30% 淡出
+function drawBubble(it) {
+  const p = it.bubbleT;
+  const alpha = p < 0.7 ? 1 : Math.max(0, (1 - p) / 0.3);
+  const pop = p < 0.08 ? 0.6 + 5 * p : 1; // 冒出來時小彈一下
+  const size = Math.max(26, Math.min(44, it.h * 0.4)); // 跟體型走：鼠小、龍大
+  drawEmoji(it.bubble, it.x + it.w * 0.3 * it.facing, it.y - it.lift - it.h + size * 0.15 - p * 14, size * pop, alpha);
+}
+
+function drawEmoji(emoji, x, y, size, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = `${Math.round(size)}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(emoji, x, y);
+  ctx.restore();
 }
 
 function drawZzz(x, y, t) {

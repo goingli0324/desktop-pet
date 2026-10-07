@@ -7,7 +7,7 @@
 
 ```
 npm start          # 開發啟動（也可雙擊 啟動.command）
-npm test           # 切格器測試（node --test）
+npm test           # 切格器＋數值＋模擬測試（node --test）
 npm run dist:mac          # DMG → dist/（開發用，未 notarize）
 npm run dist:mac:signed   # Developer ID 簽章 + notarize，帳密讀 ~/.config/desktop-pet/notarize.env
 npm run dist:win   # NSIS + portable exe → dist/（在 mac 上建置）
@@ -24,6 +24,7 @@ node scripts/build-builtin.mjs [<id>...]（id 見 scripts/build-builtin.mjs 的 
 6. **金鑰**只經 `main/secrets.js`（safeStorage）。不進 settings.json、不進 log、不回明文給 renderer（只回尾四碼）。Gemini 呼叫金鑰走 header，不走 query string。
 7. **打包設定**（package.json `build`）：`files` 白名單決定哪些東西進 app，`assets/builtin` 與 `renderer/shared` 缺一不可（main 與 renderer 都 import 後者）；`assets/sheets` 刻意排除（3 MB 原始表只給產出腳本用）。
 8. **內建動物 id**：`builtin-<animal>`，`ensureBuiltinPets` 以 id 判斷已複製過就不覆蓋；改內建素材後，使用者端要刪 `userData/pets/builtin-<animal>/` 才會拿到新版。`pruneRemovedBuiltins` 會清掉 userData 裡已不再出貨的 builtin-*（升級收斂/改名用），只動 builtin-*、不碰 pet-*。
+9. **互動養成數值 `userData/needs.json`**（`main/needs.js` 檔頭有 schema）：按種類（petId）共用一組肚子／心情，使用者資料，改欄位要向下相容。刻意不放進 settings.json（每分鐘存一次，避免與設定頁寫入互蓋）。刪寵物時 `pets:delete` 會一併 `needs.remove`。情緒判定在 `moodOf`，模擬端只透過 `getMood`／`onPet`／`onAte`／`isAway` 四個注入函式碰數值。`overlay:draw` 的 item 多了 `bubble`／`bubbleT`，payload 多了 `foods`。
 
 ## 內建動物體型
 `scripts/build-builtin.mjs` 的 `SIZES` 表決定每隻成品 PNG 高度＝`BASE_H×相對體型`（鼠 0.5、牛 1.6、熊 1.6…），螢幕上大小按真實體型；改體型改這張表重建即可，不動程式。
@@ -34,4 +35,5 @@ node scripts/build-builtin.mjs [<id>...]（id 見 scripts/build-builtin.mjs 的 
 - 正常運作時安靜；只有錯誤寫 `userData/logs/app.log`。
 - **多螢幕架構**：模擬在 `main/simulation.js`（全域座標 actors[]、狀態機、hover/drag），`main/index.js` 跑 ~60fps loop 並每幀把「各螢幕上的寵物（本地座標＋幀名＋變形）」送給對應覆蓋視窗；`renderer/overlay/overlay.js` 只是 drawer（預載幀圖、收 `overlay:draw` 畫出、轉發滑鼠）。每個螢幕一個覆蓋視窗（`createOverlayWindows`），螢幕增減會 `buildOverlays` 重建。
 - 主程序算寵物 bbox 需要幀像素大小 → `loadActivePets` 附 `sizes`（讀 PNG IHDR）。
+- **互動養成**（計畫 `plans/2026-10-08-pet-needs.md`）：右鍵「餵食」、游標在身上來回滑算摸摸、冷落會黏人（💭）再生氣（💢 跺腳、背對）、電腦閒置 5 分鐘全睡。只用既有 8 格＋特效，沒有新圖。開發驗證可加速：`DESKTOP_PET_TIME_SCALE=600 npm start`（`DESKTOP_PET_AWAY_SECONDS` 調閒置門檻）。
 - **會飛的動物**：`main/simulation.js` 的 `FLYERS` 集合（辰龍/藍鵲/帝雉）走 fly/hover 狀態，自由飄移（不限水平）＋上下浮動、不落地；改哪些會飛改這個集合。
