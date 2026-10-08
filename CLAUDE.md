@@ -24,7 +24,7 @@ node scripts/build-builtin.mjs [<id>...]（id 見 scripts/build-builtin.mjs 的 
 6. **金鑰**只經 `main/secrets.js`（safeStorage）。不進 settings.json、不進 log、不回明文給 renderer（只回尾四碼）。Gemini 呼叫金鑰走 header，不走 query string。
 7. **打包設定**（package.json `build`）：`files` 白名單決定哪些東西進 app，`assets/builtin` 與 `renderer/shared` 缺一不可（main 與 renderer 都 import 後者）；`assets/sheets` 刻意排除（3 MB 原始表只給產出腳本用）。
 8. **內建動物 id**：`builtin-<animal>`，`ensureBuiltinPets` 以 id 判斷已複製過就不覆蓋；改內建素材後，使用者端要刪 `userData/pets/builtin-<animal>/` 才會拿到新版。`pruneRemovedBuiltins` 會清掉 userData 裡已不再出貨的 builtin-*（升級收斂/改名用），只動 builtin-*、不碰 pet-*。
-9. **互動養成數值 `userData/needs.json`**（`main/needs.js` 檔頭有 schema）：按種類（petId）共用一組肚子／心情，使用者資料，改欄位要向下相容。刻意不放進 settings.json（每分鐘存一次，避免與設定頁寫入互蓋）。刪寵物時 `pets:delete` 會一併 `needs.remove`。情緒判定在 `moodOf`，模擬端只透過 `getMood`／`onPet`／`onAte`／`isAway` 四個注入函式碰數值。`overlay:draw` 的 item 多了 `bubble`／`bubbleT`，payload 多了 `foods`。
+9. **互動養成數值 `userData/needs.json`**（`main/needs.js` 檔頭有 schema）：按種類（petId）共用一組肚子／心情，使用者資料，改欄位要向下相容。刻意不放進 settings.json（每分鐘存一次，避免與設定頁寫入互蓋）。刪寵物時 `pets:delete` 會一併 `needs.remove`。情緒判定在 `moodOf`，模擬端只透過 `getMood`／`onPet`／`onAte`／`isAway` 四個注入函式碰數值。`overlay:draw` 的 item 多了 `bubble`／`bubbleT`／`lean`（吃東西前傾，畫面端用水平斜切畫），payload 多了 `foods`（含 `scale` 咬幾口後的大小、`biteAge` 碎屑動畫、`size`）。
 
 ## 內建動物體型
 `scripts/build-builtin.mjs` 的 `SIZES` 表決定每隻成品 PNG 高度＝`BASE_H×相對體型`（鼠 0.5、牛 1.6、熊 1.6…），螢幕上大小按真實體型；改體型改這張表重建即可，不動程式。

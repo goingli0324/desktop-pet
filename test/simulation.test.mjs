@@ -170,3 +170,31 @@ test('游標只是橫越經過一次，不算摸', () => {
   run(sim, 2);
   assert.equal(calls.pet, 0);
 });
+
+// 0.4.1 回饋：吃東西是蹲下幀＋站姿交替，看起來像一直蹲下站起。改成站著點頭、食物一口一口變小。
+test('吃東西時站著點頭（不用蹲下幀），食物一口一口變小', () => {
+  const { sim } = makeSim();
+  const a = actorOf(sim);
+  sim.setCursor(null);
+  sim.feed(a);
+  const frames = new Set();
+  const scales = [];
+  let nodded = false;
+  for (let t = 0; t < 8; t += 1 / 60) {
+    sim.tick(1 / 60);
+    const it = sim.renderLists()[1][0];
+    if (a.state.name === 'eat') {
+      frames.add(it.frame);
+      if (it.lean > 0.15 && Math.abs(it.rot) < 0.01) nodded = true; // 腳固定、上半身往前傾（不轉整隻，免得前腳沉到地下）
+      const f0 = sim.foodLists()[1][0];
+      if (f0) assert.ok((f0.x - it.x) * it.facing > it.w * 0.45, '食物要在嘴巴前方，不能被腳擋住');
+      const f = sim.foodLists()[1][0];
+      if (f) scales.push(f.scale);
+    }
+  }
+  assert.ok(!frames.has('crouch'), '吃的時候不該用蹲下幀');
+  assert.ok(nodded, '吃的時候要往前傾');
+  assert.ok(scales.length > 0 && scales[0] === 1, '剛開始吃食物是原大小');
+  assert.ok(Math.min(...scales) < 0.5, '吃到後來食物要明顯變小');
+  for (let i = 1; i < scales.length; i++) assert.ok(scales[i] <= scales[i - 1], '食物只會越吃越小');
+});

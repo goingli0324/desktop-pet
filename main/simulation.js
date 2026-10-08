@@ -23,7 +23,15 @@ const HOVER_SECONDS = [1.5, 4];
 const FLY_BOB = { hz: 2.2, px: 10 };
 const FLY_TILT = 0.06;
 // 互動養成（數值在 main/needs.js，這裡只負責「看起來」）
-const EAT_SECONDS = 2.2;
+// 吃：腳踩地、上半身往前傾再壓低（水平斜切，不轉整隻，免得前腳沉到地下），每傾一次咬一口、食物變小。
+// 不用蹲下幀（0.4.1 回饋：蹲下站起不像在吃）。
+const EAT_BITES = 4;
+const EAT_SECONDS = 2.4;
+const EAT_LEAN = 0.38;            // 前傾最深時，頭頂往前移動的比例（相對身高）
+const EAT_DIP = 0.12;            // 前傾時身體壓低的比例
+const EAT_FOOD_AHEAD = 0.6;       // 食物放在身寬多少倍的前方（嘴巴前，不被腳擋住）
+const EAT_BITE_AT = 0.35;         // 每口週期裡頭最低（咬下去）的時間點
+const FOOD_SHRINK_PER_BITE = 0.22;
 const STOMP_SECONDS = 1.6;
 const SULK_SECONDS = [4, 8];
 const AWAY_SLEEP_SECONDS = [30, 60];
@@ -239,6 +247,10 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
         if (s.t >= s.dur) startAction(a, pickNextAction(a));
         break;
       case 'eat':
+        if (s.food) {
+          const bites = Math.min(EAT_BITES, Math.floor(s.t / (EAT_SECONDS / EAT_BITES) + (1 - EAT_BITE_AT)));
+          if (bites > (s.food.bites || 0)) { s.food.bites = bites; s.food.biteAge = 0; }
+        }
         if (s.t >= s.dur) {
           foods = foods.filter((f) => f !== s.food);
           onAte(a.def.id);
@@ -297,15 +309,21 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
       case 'land': return 'land';
       case 'fly': return `walk${Math.floor(s.t * FLY_FPS) % 4}`;
       case 'dragged': return 'air';
-      case 'eat': return a.def.flying ? 'idle' : (Math.floor(s.t * 3) % 2 ? 'crouch' : 'idle');
+      case 'eat': return 'idle';
       case 'stomp': return a.def.flying ? 'idle' : (Math.floor(s.t * 6) % 2 ? 'land' : 'idle');
       default: return 'idle';
     }
   }
 
+  // 一口的點頭曲線 0→1→0：快速低頭（到 EAT_BITE_AT），再慢慢抬起
+  function eatNod(t) {
+    const p = (t % (EAT_SECONDS / EAT_BITES)) / (EAT_SECONDS / EAT_BITES);
+    return p < EAT_BITE_AT ? Math.sin((p / EAT_BITE_AT) * Math.PI / 2) : Math.cos(((p - EAT_BITE_AT) / (1 - EAT_BITE_AT)) * Math.PI / 2);
+  }
+
   function poseTransform(a) {
     const s = a.state;
-    let lift = 0, sx = 1, sy = 1, rot = 0;
+    let lift = 0, sx = 1, sy = 1, rot = 0, lean = 0;
     if (s.name === 'hop') {
       if (s.phase === 'air') { const p = s.t / HOP.air; lift = s.height * 4 * p * (1 - p); }
       if (s.phase === 'crouch' || s.phase === 'land') { sy = 1 - PROCEDURAL.squash; sx = 1 + PROCEDURAL.squash; }
@@ -322,7 +340,7 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
       lift += FLY_BOB.px * Math.sin(s.t * FLY_BOB.hz);
       rot += FLY_TILT * Math.sin(s.t * FLY_BOB.hz * 0.5);
     }
-    if (s.name === 'eat') rot = Math.sin(s.t * Math.PI * 6) * 0.06;
+    if (s.name === 'eat') { const n = eatNod(s.t); lean = EAT_LEAN * n; sy = 1 - EAT_DIP * n; }
     if (s.name === 'stomp') {
       const k = Math.abs(Math.sin(s.t * Math.PI * 6));
       sy = 1 - 0.1 * k; sx = 1 + 0.1 * k;
@@ -330,7 +348,7 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
     }
     if (a.def.flying && (s.name === 'eat' || s.name === 'stomp')) lift += FLY_BOB.px * Math.sin(s.t * FLY_BOB.hz);
     if (s.name === 'dragged') rot = Math.sin(s.t * 6) * 0.08;
-    return { lift, sx, sy, rot };
+    return { lift, sx, sy, rot, lean };
   }
 
   function actorSize(a) {
@@ -401,7 +419,7 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
         a.petCooldown = Math.max(0, a.petCooldown - dt);
       }
       if (!paused) detectPetting();
-      for (const f of foods) f.ttl -= dt;
+      for (const f of foods) { f.ttl -= dt; if (f.biteAge !== undefined) f.biteAge += dt; }
       foods = foods.filter((f) => f.ttl > 0 || (f.actor.state.name === 'eat' && f.actor.state.food === f));
     },
     /** 右鍵「餵食」：食物掉在牠面前，牠走（飛）過去吃。 */
@@ -409,13 +427,14 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
       if (!a || !actors.includes(a) || a === dragActor) return false;
       foods = foods.filter((f) => f.actor !== a);
       const d = displayAt(a.pos.x, a.pos.y) || getDisplays()[0];
+      const { w } = actorSize(a);
+      const ahead = w * EAT_FOOD_AHEAD;
       let dir = a.facing;
-      let x = a.pos.x + dir * rand(70, 120);
-      if (x < d.x + 30 || x > d.x + d.width - 30) { dir = -dir; x = a.pos.x + dir * rand(70, 120); }
+      let x = a.pos.x + dir * (ahead + rand(50, 100)); // 比「停在食物前方」再遠一點，牠才是往前走過去，不會倒退
+      if (x < d.x + 30 || x > d.x + d.width - 30) { dir = -dir; x = a.pos.x + dir * (ahead + rand(50, 100)); }
       const food = { x, y: a.pos.y, emoji: a.def.food, ttl: FOOD_TTL, actor: a };
       foods.push(food);
-      const { w } = actorSize(a);
-      moveTo(a, { x: x - dir * w * 0.35, y: food.y }, a.def.flying ? rand(...FLY_SPEED) : rand(...WALK_SPEED) * 1.3, { then: 'eat', food });
+      moveTo(a, { x: x - dir * w * EAT_FOOD_AHEAD, y: food.y }, a.def.flying ? rand(...FLY_SPEED) : rand(...WALK_SPEED) * 1.3, { then: 'eat', food });
       return true;
     },
     /** 每個螢幕要畫的食物（本地座標）。 */
@@ -424,7 +443,7 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
       for (const d of getDisplays()) out[d.id] = [];
       for (const f of foods) {
         const d = displayAt(f.x, f.y);
-        if (d) out[d.id].push({ x: f.x - d.x, y: f.y - d.y, emoji: f.emoji });
+        if (d) out[d.id].push({ x: f.x - d.x, y: f.y - d.y, emoji: f.emoji, scale: Math.max(0, 1 - (f.bites || 0) * FOOD_SHRINK_PER_BITE), biteAge: f.biteAge ?? null, size: Math.max(22, Math.min(40, actorSize(f.actor).h * 0.28)) });
       }
       return out;
     },
@@ -453,13 +472,13 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
       const ordered = [...actors].sort((p, q) => (p === dragActor ? 1 : q === dragActor ? -1 : p.pos.y - q.pos.y));
       for (const a of ordered) {
         const { w, h } = actorSize(a);
-        const { lift, sx, sy, rot } = poseTransform(a);
+        const { lift, sx, sy, rot, lean } = poseTransform(a);
         const b = { x0: a.pos.x - w / 2, y0: a.pos.y - h - lift, x1: a.pos.x + w / 2, y1: a.pos.y - lift };
         for (const d of ds) {
           if (b.x1 < d.x || b.x0 > d.x + d.width || b.y1 < d.y || b.y0 > d.y + d.height) continue; // 不相交
           out[d.id].push({
             petId: a.def.id, frame: currentFrameName(a), facing: a.facing,
-            x: a.pos.x - d.x, y: a.pos.y - d.y, w, h, lift, sx, sy, rot,
+            x: a.pos.x - d.x, y: a.pos.y - d.y, w, h, lift, sx, sy, rot, lean,
             sleeping: a.state.name === 'sleep', sleepT: a.state.t, grabTarget: a === hov,
             bubble: a.bubble ? a.bubble.emoji : null, bubbleT: a.bubble ? a.bubble.t / a.bubble.dur : 0,
           });

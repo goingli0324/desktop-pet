@@ -38,7 +38,7 @@ async function preloadImages(list) {
 function draw({ items, grab, foods = [] }) {
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
   document.body.classList.toggle('grab', !!grab);
-  for (const f of foods) drawEmoji(f.emoji, f.x, f.y, 26, 1);
+  for (const f of foods) drawFood(f);
   for (const it of items) {
     const frames = imgs.get(it.petId);
     const img = frames && (frames[it.frame] || frames.idle);
@@ -47,11 +47,38 @@ function draw({ items, grab, foods = [] }) {
     ctx.translate(it.x, it.y - it.lift);
     ctx.rotate(it.rot * it.facing);
     ctx.scale(it.facing * it.sx, it.sy);
+    if (it.lean) ctx.transform(1, 0, -it.lean, 1, 0, 0); // 腳不動、越高往前移越多（圖預設面向右，鏡像後一樣是往前）
     ctx.drawImage(img, -it.w / 2, -it.h, it.w, it.h);
     ctx.restore();
     if (it.sleeping) drawZzz(it.x + it.w * 0.35 * it.facing, it.y - it.h - 6, it.sleepT);
     if (it.bubble) drawBubble(it);
   }
+}
+
+// 食物：一口一口變小；剛咬下去時彈一下、冒三顆碎屑往外掉
+const CRUMB_SECONDS = 0.45;
+function drawFood(f) {
+  const scale = f.scale ?? 1;
+  if (scale <= 0) return;
+  const age = f.biteAge;
+  const fresh = age !== null && age !== undefined && age < CRUMB_SECONDS;
+  const squish = fresh ? 1 - 0.18 * Math.sin((age / CRUMB_SECONDS) * Math.PI) : 1;
+  const size = (f.size || 26) * scale;
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.scale(1 / squish, squish); // 被咬那一下壓扁再彈回
+  drawEmoji(f.emoji, 0, 0, size, 1);
+  ctx.restore();
+  if (!fresh) return;
+  const p = age / CRUMB_SECONDS;
+  ctx.save();
+  ctx.fillStyle = `rgba(150, 105, 55, ${1 - p})`;
+  for (const [dx, up] of [[-1, 1], [0.3, 1.4], [1, 0.9]]) {
+    const cx = f.x + dx * size * (0.45 + 0.6 * p);
+    const cy = f.y - size * 0.95 - up * 14 * p + 34 * p * p; // 從食物上緣往外噴再落下，不疊在食物上
+    ctx.beginPath(); ctx.arc(cx, cy, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 }
 
 // 表情泡泡（❤️ 💢 💭 食物）：頭頂斜上方，緩緩上飄，最後 30% 淡出
