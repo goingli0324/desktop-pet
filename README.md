@@ -30,6 +30,7 @@ npm test
 
 - macOS：`~/Library/Application Support/desktop-pet/`
 - Windows：`%APPDATA%\desktop-pet\`
+- 開發版（`npm start`）用同層的 `desktop-pet-dev`，不會動到正式版的資料。
 
 裡面有 `pets/`（每隻一個資料夾）、`settings.json`、`needs.json`（肚子與心情）、`gemini.key`（加密）、`logs/app.log`（只記錯誤）。
 

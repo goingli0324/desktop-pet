@@ -33,6 +33,7 @@ node scripts/build-builtin.mjs [<id>...]（id 見 scripts/build-builtin.mjs 的 
 - ESM（`"type":"module"`），只有 preload 是 `.cjs`（sandbox 限制）。
 - 沒有建置步驟：renderer 直接載 `.js` 模組，CSP `default-src 'self'`，不載外部資源。
 - 正常運作時安靜；只有錯誤寫 `userData/logs/app.log`。
+- **開發版用獨立資料夾**：未打包時（`npm start`）`main/index.js` 在取單一實例鎖之前把 userData 改成 `desktop-pet-dev`。正式版是 `desktop-pet`（Electron 依 package.json 的 name 決定，不是 productName）。兩者可同時跑、不互改設定與數值；這段一定要留在 `requestSingleInstanceLock` 之前。
 - **多螢幕架構**：模擬在 `main/simulation.js`（全域座標 actors[]、狀態機、hover/drag），`main/index.js` 跑 ~60fps loop 並每幀把「各螢幕上的寵物（本地座標＋幀名＋變形）」送給對應覆蓋視窗；`renderer/overlay/overlay.js` 只是 drawer（預載幀圖、收 `overlay:draw` 畫出、轉發滑鼠）。每個螢幕一個覆蓋視窗（`createOverlayWindows`），螢幕增減會 `buildOverlays` 重建。
 - 主程序算寵物 bbox 需要幀像素大小 → `loadActivePets` 附 `sizes`（讀 PNG IHDR）。
 - **互動養成**（計畫 `plans/2026-10-08-pet-needs.md`）：右鍵「餵食」、游標在身上來回滑算摸摸、冷落會黏人（💭）再生氣（💢 跺腳、背對）、電腦閒置 5 分鐘全睡。只用既有 8 格＋特效，沒有新圖。開發驗證可加速：`DESKTOP_PET_TIME_SCALE=600 npm start`（`DESKTOP_PET_AWAY_SECONDS` 調閒置門檻）。

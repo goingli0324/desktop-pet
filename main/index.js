@@ -29,6 +29,15 @@ let away = false;
 let needsAcc = 0;
 let needsSavedAt = 0;
 
+// 開發版（npm start，未打包）用獨立資料夾：Electron 預設依 package.json 的 name 決定 userData，
+// 不分開的話開發版會改到正式版的設定與數值，也會被正式版的單一實例鎖擋掉。
+// 必須在 requestSingleInstanceLock 之前設定（鎖檔就放在 userData 裡）。
+if (!app.isPackaged) {
+  const devDir = path.join(app.getPath('appData'), 'desktop-pet-dev');
+  fs.mkdirSync(devDir, { recursive: true });
+  app.setPath('userData', devDir);
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
