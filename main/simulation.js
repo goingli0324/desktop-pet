@@ -28,9 +28,11 @@ const STOMP_SECONDS = 1.6;
 const SULK_SECONDS = [4, 8];
 const AWAY_SLEEP_SECONDS = [30, 60];
 const BUBBLE_SECONDS = 2.5;
-const PET_RUB_PX = 900;          // 游標在身上來回累積這麼多距離算摸一次
-const PET_RUB_DECAY = 300;       // 每秒消退（停手就歸零）
-const PET_STOP_PX = 150;         // 摸到這個程度牠就停下來
+// 摸摸門檻跟著體型走：在牠身上來回約 3 趟（累積距離＝寬度×3）就算摸一次。
+// 0.4.0 用固定 900px＋每秒消退 300px，人手速度在小動物身上永遠累積不到（實測縮放 0.35 的貓最多 130px）。
+const PET_STROKES = 3;
+const PET_MIN_RUB_PX = 90;       // 再小的動物也要有點來回，免得路過就算摸
+const PET_RUB_RESET_SECONDS = 1.5; // 游標離開牠身上這麼久，累積歸零（在身上時不消退）
 const PET_COOLDOWN = 10;
 const FOOD_TTL = 25;             // 沒吃到的食物多久後消失
 const MOOD_SPEED = { hungry: 0.7, angry: 0.8 };
@@ -347,6 +349,8 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
   function inside(p, b) { return p.x >= b.x0 && p.x <= b.x1 && p.y >= b.y0 && p.y <= b.y1; }
 
   // 摸摸：游標在牠身上來回移動（不用按鍵）累積距離，夠了就算一次；睡著的不吵、拖曳中不算
+  function rubThreshold(a) { return Math.max(PET_MIN_RUB_PX, actorSize(a).w * PET_STROKES); }
+
   function detectPetting() {
     const prev = lastCursor;
     lastCursor = cursor; // 位移只算一次：游標沒動就是 0
@@ -354,9 +358,10 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
     const a = actorAtCursor();
     if (!a || a.state.name === 'sleep' || a.petCooldown > 0) return;
     a.rub += Math.hypot(cursor.x - prev.x, cursor.y - prev.y);
+    const threshold = rubThreshold(a);
     // 開始被摸就停下來讓你摸（跑走的話游標追不上）
-    if (a.rub > PET_STOP_PX && ['walk', 'run', 'fly'].includes(a.state.name)) { faceCursor(a); enter(a, restState(a), { dur: 3 }); }
-    if (a.rub < PET_RUB_PX) return;
+    if (a.rub > threshold / 3 && ['walk', 'run', 'fly'].includes(a.state.name)) { faceCursor(a); enter(a, restState(a), { dur: 3 }); }
+    if (a.rub < threshold) return;
     a.rub = 0;
     a.petCooldown = PET_COOLDOWN;
     onPet(a.def.id);
@@ -378,12 +383,13 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
     tick(dt) {
       const paused = isPaused();
       if (dragActor && cursor) { dragActor.pos = { x: cursor.x + dragActor.dragDX, y: cursor.y + dragActor.dragDY }; clampToScreens(dragActor); }
+      const underCursor = cursor && !dragActor ? actorAtCursor() : null;
       for (const a of actors) {
         if (a === dragActor) { a.state.t += dt; continue; }
         if (!paused && a.state.name !== 'dragged') update(a, dt);
         else a.state.t += dt;
         if (a.bubble && (a.bubble.t += dt) >= a.bubble.dur) a.bubble = null;
-        a.rub = Math.max(0, a.rub - PET_RUB_DECAY * dt);
+        if (a !== underCursor) a.rub = Math.max(0, a.rub - (rubThreshold(a) / PET_RUB_RESET_SECONDS) * dt);
         a.petCooldown = Math.max(0, a.petCooldown - dt);
       }
       if (!paused) detectPetting();

@@ -114,3 +114,31 @@ test('想你時會走到游標附近並冒 💭', () => {
   assert.ok(missed, '應該冒過 💭');
   assert.ok(closest < 160, `冒 💭 時應在游標旁（實際水平距離 ${Math.round(closest)}px）`);
 });
+
+// 回歸：0.4.0 實機摸不出愛心。舊測試每幀游標跳 60px（人手做不到）所以假綠；這裡用真實貓圖尺寸＋縮放 0.35＋人手速度。
+const CAT_SIZES = { walk0: [141, 132], walk1: [142, 133], walk2: [139, 132], walk3: [146, 133], idle: [147, 136], crouch: [154, 123], air: [140, 143], land: [167, 121] };
+function smallCatSim() {
+  const calls = { pet: 0 };
+  const sim = createSimulation({ getDisplays: () => [DISPLAY], getScale: () => 0.35, isPaused: () => false, onPet: () => calls.pet++ });
+  sim.setPets([{ id: 'builtin-cat', count: 1, sizes: CAT_SIZES }]);
+  const a = actorOf(sim);
+  a.state = { name: 'idle', t: 0, dur: 999 }; // 固定站著，結果每次一樣
+  return { sim, a, calls };
+}
+
+for (const [amp, hz] of [[20, 2], [40, 2], [60, 3]]) {
+  test(`真人摸法（小貓，游標 ±${amp}px ${hz}Hz 來回 3 秒）會觸發摸摸`, () => {
+    const { sim, a, calls } = smallCatSim();
+    const cx = a.pos.x, cy = a.pos.y - 24;
+    for (let i = 0; i < 180; i++) { sim.setCursor({ x: cx + amp * Math.sin(2 * Math.PI * hz * i / 60), y: cy }); sim.tick(1 / 60); }
+    assert.ok(calls.pet >= 1, '應該觸發摸摸');
+  });
+}
+
+test('游標只是橫越經過一次，不算摸', () => {
+  const { sim, a, calls } = smallCatSim();
+  const cy = a.pos.y - 24;
+  for (let i = 0; i <= 60; i++) { sim.setCursor({ x: a.pos.x - 300 + i * 10, y: cy }); sim.tick(1 / 60); }
+  run(sim, 2);
+  assert.equal(calls.pet, 0);
+});
