@@ -101,28 +101,47 @@ test('會飛的動物被餵也是飛過去吃，不用蹲下幀', () => {
 
 // 原本隨機生成＋90 秒內等牠自己抽到 seek（每次 45%），約 0.3% 會連續抽不中、或太晚抽中還走在半路而假紅。
 // 改成固定位置、下一幀就決策，且只在那一幀把 Math.random 固定在 0.2（< 0.45 一定選 seek）；之後照常隨機。
-test('想你時會走到游標附近並冒 💭', () => {
-  const { sim } = makeSim({ getMood: () => 'lonely' });
+function lonelySeek({ id = 'builtin-cat', from, cursor }) {
+  const { sim } = makeSim({ id, getMood: () => 'lonely' });
   const a = actorOf(sim);
-  a.pos = { x: 1300, y: 600 };
+  a.pos = { ...from };
   a.state = { name: 'idle', t: 0, dur: 0 };
-  const target = { x: 300, y: a.pos.y - 40 }; // 隔約 1000px，確認是真的走過去
-  sim.setCursor(target);
+  sim.setCursor(cursor);
   const realRandom = Math.random;
   Math.random = () => 0.2;
   try { sim.tick(1 / 30); } finally { Math.random = realRandom; }
-  assert.equal(a.state.then, 'miss', 'lonely 的那次決策應該選 seek（走向游標）');
-  let missed = false;
-  let closest = Infinity;
-  for (let t = 0; t < 30; t += 1 / 30) { // 最慢 60px/s 走約 900px ≈ 15 秒
-    sim.setCursor(target);
+  const started = a.state.then === 'miss';
+  let missed = false, closest = Infinity, lowestFeetY = -Infinity;
+  for (let t = 0; t < 30; t += 1 / 30) { // 最慢 60px/s 走約 1000px ≈ 17 秒
+    sim.setCursor(cursor);
     sim.tick(1 / 30);
-    const it = sim.renderLists()[1][0];
-    if (it?.bubble === '💭') { missed = true; closest = Math.min(closest, Math.abs(a.pos.x - target.x)); }
+    lowestFeetY = Math.max(lowestFeetY, a.pos.y);
+    if (sim.renderLists()[1][0]?.bubble === '💭') { missed = true; closest = Math.min(closest, Math.abs(a.pos.x - cursor.x)); }
   }
-  assert.ok(missed, '應該冒過 💭');
-  assert.ok(closest < 160, `冒 💭 時應在游標旁（實際水平距離 ${Math.round(closest)}px）`);
+  return { started, missed, closest, lowestFeetY };
+}
+
+function assertCameToCursor(r) {
+  assert.ok(r.started, 'lonely 的那次決策應該選 seek（走向游標）');
+  assert.ok(r.missed, '應該冒過 💭');
+  assert.ok(r.closest < 160, `冒 💭 時應在游標旁（實際水平距離 ${Math.round(r.closest)}px）`);
+  assert.ok(r.lowestFeetY <= DISPLAY.y + DISPLAY.height, `不該走出螢幕底（腳底 y=${Math.round(r.lowestFeetY)}）`);
+}
+
+test('想你時會走到游標附近並冒 💭', () => {
+  assertCameToCursor(lonelySeek({ from: { x: 1300, y: 600 }, cursor: { x: 300, y: 560 } })); // 隔約 1000px，確認是真的走過去
 });
+
+// 回歸：seek 目標＝游標下方 20～60px，游標靠近底部或停在 Dock／工作列（workArea 外）時目標出界，牠就直接回休息不冒 💭。
+for (const [label, id, from, cursor] of [
+  ['游標貼近底部', 'builtin-cat', { x: 1300, y: 1000 }, { x: 300, y: 990 }],
+  ['游標停在 Dock／工作列上', 'builtin-cat', { x: 1300, y: 700 }, { x: 300, y: 1040 }],
+  ['會飛的動物，游標停在 Dock／工作列上', 'builtin-zodiac-dragon', { x: 1300, y: 500 }, { x: 300, y: 1040 }],
+]) {
+  test(`想你時${label}，仍走到螢幕內最靠近游標處冒 💭`, () => {
+    assertCameToCursor(lonelySeek({ id, from, cursor }));
+  });
+}
 
 // 回歸：0.4.0 實機摸不出愛心。舊測試每幀游標跳 60px（人手做不到）所以假綠；這裡用真實貓圖尺寸＋縮放 0.35＋人手速度。
 const CAT_SIZES = { walk0: [141, 132], walk1: [142, 133], walk2: [139, 132], walk3: [146, 133], idle: [147, 136], crouch: [154, 123], air: [140, 143], land: [167, 121] };

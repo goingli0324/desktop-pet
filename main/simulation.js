@@ -75,6 +75,18 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
     for (const d of getDisplays()) if (x >= d.x && x < d.x + d.width && y >= d.y && y < d.y + d.height) return d;
     return null;
   }
+  // 點不在任何螢幕上（例如游標停在 Dock／工作列，那裡不在 workArea 內）時，找離它最近的螢幕
+  function nearestDisplay(x, y) {
+    let best = displayAt(x, y), bd = Infinity;
+    if (best) return best;
+    for (const d of getDisplays()) {
+      const cx = Math.max(d.x, Math.min(x, d.x + d.width));
+      const cy = Math.max(d.y, Math.min(y, d.y + d.height));
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist < bd) { bd = dist; best = d; }
+    }
+    return best;
+  }
 
   // 依 main 給的 active 清單（每隻含 count、sizes）重建 actors，盡量保留現有位置
   function setPets(list) {
@@ -149,11 +161,16 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
     if (name === 'seek') {
       const side = cursor.x >= a.pos.x ? -1 : 1; // 停在游標靠自己這一側
       const target = { x: cursor.x + side * rand(70, 130), y: a.def.flying ? cursor.y : cursor.y + rand(20, 60) };
+      // 游標貼近底部或停在 Dock／工作列時，目標會出界；夾回游標所在（或最近）螢幕內，走到最靠近的地方
+      const d = nearestDisplay(cursor.x, cursor.y);
+      const { w, h } = actorSize(a);
+      target.x = Math.max(d.x + w / 2, Math.min(d.x + d.width - w / 2, target.x));
       if (!a.def.flying) { // 地上走的坡度有限，太陡看起來像整張圖在滑
         const maxDy = Math.abs(target.x - a.pos.x) * Math.tan(SEEK_MAX_ANGLE);
         target.y = a.pos.y + Math.max(-maxDy, Math.min(maxDy, target.y - a.pos.y));
       }
-      if (!displayAt(target.x, target.y)) { enter(a, restState(a)); return; }
+      target.y = Math.max(d.y + h, Math.min(d.y + d.height - 1, target.y)); // displayAt 不含底邊，留 1px
+      if (!displayAt(target.x, target.y)) { enter(a, restState(a)); return; } // 螢幕比寵物還小之類的極端情況
       moveTo(a, target, a.def.flying ? rand(...FLY_SPEED) : rand(...WALK_SPEED), { then: 'miss' });
       return;
     }
@@ -331,16 +348,7 @@ export function createSimulation({ getDisplays, getScale, isPaused, getMood = ()
   function clampToScreens(a) {
     // 夾回「離目前位置最近的螢幕」的範圍內
     const { w, h } = actorSize(a);
-    let best = displayAt(a.pos.x, a.pos.y);
-    if (!best) {
-      let bd = Infinity;
-      for (const d of getDisplays()) {
-        const cx = Math.max(d.x, Math.min(a.pos.x, d.x + d.width));
-        const cy = Math.max(d.y, Math.min(a.pos.y, d.y + d.height));
-        const dist = Math.hypot(a.pos.x - cx, a.pos.y - cy);
-        if (dist < bd) { bd = dist; best = d; }
-      }
-    }
+    const best = nearestDisplay(a.pos.x, a.pos.y);
     if (!best) return;
     a.pos.x = Math.min(Math.max(a.pos.x, best.x + w / 2), best.x + best.width - w / 2);
     a.pos.y = Math.min(Math.max(a.pos.y, best.y + h), best.y + best.height);
